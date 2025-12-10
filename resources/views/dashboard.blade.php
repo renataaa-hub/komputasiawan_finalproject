@@ -63,7 +63,7 @@
                 <span class="text-xs">Home</span>
             </a>
 
-            <a href="#" class="group relative flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition">
+            <a href="{{ route('karya.karya') }}" class="group relative flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
                 </svg>
@@ -121,47 +121,6 @@
         </div>
     </div>
 
-    <!-- Bottom Navigation Mobile -->
-    <div class="fixed bottom-0 left-0 right-0 bg-white shadow-lg z-50 md:hidden">
-        <nav class="flex justify-around items-center h-16 px-2">
-            <a href="#" class="flex flex-col items-center gap-1 p-2 text-blue-600">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                </svg>
-                <span class="text-xs">Home</span>
-            </a>
-
-            <a href="#" class="flex flex-col items-center gap-1 p-2 text-gray-600">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                </svg>
-                <span class="text-xs">Karya</span>
-            </a>
-
-            <a href="#" class="flex flex-col items-center gap-1 p-2 -mt-8">
-                <div class="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
-                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                    </svg>
-                </div>
-            </a>
-
-            <a href="#" class="flex flex-col items-center gap-1 p-2 text-gray-600">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                </svg>
-                <span class="text-xs">Notif</span>
-            </a>
-
-            <a href="#" class="flex flex-col items-center gap-1 p-2 text-gray-600">
-                <div class="relative">
-                    <img src="https://ui-avatars.com/api/?name=Renata&background=3b82f6&color=fff" alt="User" class="w-6 h-6 rounded-full">
-                </div>
-                <span class="text-xs">Profil</span>
-            </a>
-        </nav>
-    </div>
-
     <!-- Main Content -->
     <div class="md:ml-20 pb-20 md:pb-6 pt-6">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -181,12 +140,12 @@
                         </svg>
                         <input type="text" placeholder="Cari karya, draft, atau topik..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     </div>
-                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 w-full sm:w-auto justify-center transition">
+                    <a href="{{ route('karya.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg flex items-center gap-2 w-full sm:w-auto justify-center transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                         </svg>
                         Tambah Karya
-                    </button>
+                    </a>
                 </div>
             </div>
 
