@@ -23,7 +23,14 @@ Route::get('/karya/create', function () {
    })->name('karya.create');
 
 Route::get('/karya/karya', function () {
-       return view('karya.karya');
-    })->name('karya.karya');
+        return view('karya.karya');
+        })->name('karya.karya');
 
+Route::get('/karya/statistik', function () {
+       return view('karya.statistik');
+    })->name('karya.statistik');
+
+Route::get('/karya/monetisasi', function () {
+       return view('karya.monetisasi');
+    })->name('karya.monetisasi');
 require __DIR__.'/auth.php';
