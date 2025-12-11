@@ -7,7 +7,48 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50">
+    <!-- Navbar -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-8">
+                    <a href="#" class="text-2xl font-bold text-blue-600">penaAwan</a>
+                </div>
+                <div class="flex items-center gap-3">
+
+                    <!-- Profile Dropdown Desktop -->
+                    <div class="relative">
+                        <button id="navProfileBtn" class="flex items-center gap-2 hover:bg-gray-100 rounded-lg p-2 transition">
+                            @if(Auth::user()->avatar)
+                                <img src="{{ Auth::user()->avatar }}" 
+                                    alt="{{ Auth::user()->name }}" 
+                                    class="w-8 h-8 rounded-full">
+                            @else
+                                <img src="https://ui-avatars.com/api/?name={{ urlencode(Auth::user()->name) }}&background=3b82f6&color=fff" 
+                                    alt="{{ Auth::user()->name }}" 
+                                    class="w-8 h-8 rounded-full">
+                            @endif
+                            <span class="hidden md:block text-gray-700 font-medium">
+                                {{ Auth::user()->name }}
+                            </span>
+
+                            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        
+                        <!-- Dropdown Menu -->
+                        <div id="navProfileDropdown" class="hidden absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                            <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition">Edit Profile</a>
+                            <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition">Log Out</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
     <div class="flex h-screen">
+
         <!-- Sidebar -->
         <aside class="w-16 bg-white border-r border-gray-200 flex flex-col items-center py-4">
             <div class="space-y-8">
@@ -68,40 +109,10 @@
         <!-- Main Content -->
         <div class="flex-1 flex flex-col overflow-hidden">
             <!-- Header -->
-            <header class="bg-white border-b border-gray-200 px-6 py-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">Karya Saya</h1>
-                        <p class="text-sm text-gray-500 mt-1">Kelola semua karya tulisan Anda</p>
-                    </div>
-                    <div class="relative">
-                        <button id="ProfileBtn" class="flex items-center gap-2 hover:bg-gray-100 rounded-lg p-2 transition">
-                            @if(Auth::user()->avatar)
-                                <img src="{{ Auth::user()->avatar }}" 
-                                    alt="{{ Auth::user()->name }}" 
-                                    class="w-8 h-8 rounded-full">
-                            @else
-                                <img src="https://ui-avatars.com/api/?name={{ urlencode(Auth::user()->name) }}&background=3b82f6&color=fff" 
-                                    alt="{{ Auth::user()->name }}" 
-                                    class="w-8 h-8 rounded-full">
-                            @endif
-                            <span class="hidden md:block text-gray-700 font-medium">
-                                {{ Auth::user()->name }}
-                            </span>
-
-                            <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                            </svg>
-                        </button>
-                        
-                        <!-- Dropdown Menu -->
-                        <div id="ProfileDropdown" class="hidden absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                            <a href="/profile" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition">Edit Profile</a>
-                            <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition">Log Out</a>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <div class="mb-15 px-10 py-6 bg-white border-b border-gray-200">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Karya Saya</h1>
+                <p class="text-gray-600">"Lanjutkan petualangan tulisanmu, semua idemu tersimpan aman di awan."</p>
+            </div>
 
             <!-- Tab Navigation -->
             <div class="bg-white border-b border-gray-200">
@@ -263,38 +274,38 @@
         </div>
     </div>
         <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                const btn = document.getElementById('ProfileBtn');
-                const dropdown = document.getElementById('ProfileDropdown');
-
-                if (!btn || !dropdown) return;
-
-                btn.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    dropdown.classList.toggle('hidden');
-                });
-
-                // Tutup dropdown kalau klik di luar
-                document.addEventListener('click', function (e) {
-                    if (!btn.contains(e.target) && !dropdown.contains(e.target)) {
-                        dropdown.classList.add('hidden');
-                    }
-                });
+            // Navbar Profile Dropdown
+        const navProfileBtn = document.getElementById('navProfileBtn');
+        const navProfileDropdown = document.getElementById('navProfileDropdown');
+        
+        if (navProfileBtn && navProfileDropdown) {
+            navProfileBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                navProfileDropdown.classList.toggle('hidden');
             });
-    </script>
-    <script>
-    function showTab(tab) {
-        document.getElementById('content-semua')?.classList.add('hidden');
-        document.getElementById('content-draft')?.classList.add('hidden');
-        document.getElementById('content-published')?.classList.add('hidden');
+        }
 
-        document.getElementById('tab-semua')?.classList.remove('border-blue-600','text-blue-600');
-        document.getElementById('tab-draft')?.classList.remove('border-blue-600','text-blue-600');
-        document.getElementById('tab-published')?.classList.remove('border-blue-600','text-blue-600');
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', (e) => {
+            if (profileDropdown && !profileDropdown.classList.contains('hidden')) {
+                profileDropdown.classList.add('hidden');
+            }
+            if (navProfileDropdown && !navProfileDropdown.classList.contains('hidden')) {
+                navProfileDropdown.classList.add('hidden');
+            }
+        });
+        function showTab(tab) {
+            document.getElementById('content-semua')?.classList.add('hidden');
+            document.getElementById('content-draft')?.classList.add('hidden');
+            document.getElementById('content-published')?.classList.add('hidden');
 
-        document.getElementById('content-' + tab)?.classList.remove('hidden');
-        document.getElementById('tab-' + tab)?.classList.add('border-blue-600','text-blue-600');
-    }
+            document.getElementById('tab-semua')?.classList.remove('border-blue-600','text-blue-600');
+            document.getElementById('tab-draft')?.classList.remove('border-blue-600','text-blue-600');
+            document.getElementById('tab-published')?.classList.remove('border-blue-600','text-blue-600');
+
+            document.getElementById('content-' + tab)?.classList.remove('hidden');
+            document.getElementById('tab-' + tab)?.classList.add('border-blue-600','text-blue-600');
+        }
     </script>
 
 </body>
