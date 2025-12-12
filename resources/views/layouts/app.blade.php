@@ -17,22 +17,33 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
-            @include('layouts.navigation')
+        <div class="min-h-screen bg-gray-100 flex">
 
-            <!-- Page Heading -->
-            @isset($header)
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
-                    </div>
-                </header>
-            @endisset
+            {{-- Sidebar --}}
+            @include('layouts.sidebar')
 
-            <!-- Page Content -->
-            <main>
-                {{ $slot }}
-            </main>
+            {{-- Content --}}
+            <div class="flex-1 ml-64"> <!-- ml-64 agar tidak ketimpa sidebar -->
+                @include('layouts.navigation')
+
+                @isset($header)
+                    <header class="bg-white shadow">
+                        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                            {{ $header }}
+                        </div>
+                    </header>
+                @endisset
+
+                <main class="p-6">
+                    @php
+                    $slot = $slot ?? '';
+                    @endphp
+
+                    {{ $slot }}
+                </main>
+            </div>
+
         </div>
     </body>
+
 </html>
