@@ -9,15 +9,17 @@ class Karya extends Model
 {
     use HasFactory;
 
+    protected $table = 'karya';
+
     protected $fillable = [
         'user_id',
         'judul',
-        'jenis',
-        'deskripsi',
-        'isi',
+        'slug',
+        'konten',
+        'kategori',
         'status',
-        'status_monetisasi',
-        'harga',
-        'pendapatan'
+        'is_draft',
+        'akses',
+        'thumbnail',
     ];
 }

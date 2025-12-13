@@ -5,6 +5,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Karya;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class KaryaController extends Controller
 {
@@ -12,7 +13,9 @@ class KaryaController extends Controller
     {
         $karya = Karya::where('user_id', Auth()->id())->get();
         $draft = Karya::where('user_id', Auth()->id())->where('status', 'draft')->get();
-        $published = Karya::where('user_id', Auth()->id())->where('status', 'published')->get();
+        $published = Karya::where('user_id', Auth::id())
+        ->where('status', 'publish')
+        ->get();
 
         return view('karya.karya', compact('karya', 'draft', 'published'));
     }
@@ -38,17 +41,56 @@ class KaryaController extends Controller
             'pendapatan' => 'nullable|integer',
             
         ]);
-
-        Karya::create([
-            'user_id' => Auth()->id(),  // pastikan user login
+        Karya::updateOrCreate(
+        [
+            'id' => $request->karya_id,
+            'user_id' => Auth::id(),
+        ],
+        [
             'judul' => $validated['judul'],
-            'jenis' => $validated['jenis'],
-            'deskripsi' => $validated['deskripsi'] ?? null,
-            'isi' => $validated['isi'],
-            'status' => $validated['status'] ?? 'draft',
-        ]);
+            'slug' => Str::slug($validated['judul']),
+            'konten' => $validated['isi'],
+            'kategori' => $validated['tags'] ?? null,
+            'status' => 'publish',
+            'is_draft' => false,
+            'akses' => 'publik',
+        ]
+    );
+
 
         return redirect()->route('karya.index')->with('success', 'Karya berhasil dibuat!');
+    }
+
+    public function autosave(Request $request)
+    {
+        // Autosave TIDAK BOLEH gagal keras
+        $request->validate([
+            'judul' => 'nullable|string|max:255',
+            'isi'   => 'nullable|string',
+            'tags'  => 'nullable|string',
+        ]);
+
+        $karya = Karya::updateOrCreate(
+            [
+                'id' => $request->karya_id,
+                'user_id' => Auth::id(),
+            ],
+            [
+                'judul'    => $request->judul ?? 'Tanpa Judul',
+                'slug'     => Str::slug($request->judul ?? 'draft-' . time()),
+                'konten'   => $request->isi,
+                'kategori' => $request->tags,
+                'status'   => 'draft',
+                'is_draft' => true,
+                'akses'    => 'pribadi',
+            ]
+        );
+
+        return response()->json([
+            'success'   => true,
+            'karya_id' => $karya->id,
+            'saved_at' => now()->format('H:i:s'),
+        ]);
     }
 
     public function statistik()

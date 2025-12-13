@@ -6,6 +6,7 @@ use App\Models\Notification;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
+
 Route::get('/', function () {
     return view('welcome');
 });
@@ -82,3 +83,8 @@ Route::get('/notification', function () {
 })->middleware('auth')->name('notification');
 
 require __DIR__.'/auth.php';
+
+#autosave
+Route::post('/karya/autosave', [KaryaController::class, 'autosave'])
+    ->middleware('auth')
+    ->name('karya.autosave');

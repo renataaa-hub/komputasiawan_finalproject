@@ -7,6 +7,9 @@
         <form action="{{ route('karya.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
 
+            <!-- ID DRAFT (WAJIB UNTUK AUTOSAVE) -->
+            <input type="hidden" id="karya_id" name="karya_id">
+
             <!-- Judul -->
             <div class="mb-4">
                 <label class="block mb-1 font-semibold">Judul Karya</label>
@@ -44,12 +47,15 @@
             </div>
 
             <!-- Isi -->
-            <div class="mb-4">
+            <div class="mb-2">
                 <label class="block mb-1 font-semibold">Isi Karya</label>
-                <textarea name="isi" rows="10"
+                <textarea id="editor" name="isi" rows="10"
                     class="w-full p-3 border rounded-lg focus:ring focus:ring-blue-200"
                     placeholder="Mulai tulis karya Anda..."></textarea>
             </div>
+
+            <!-- STATUS AUTOSAVE -->
+            <p id="autosave-status" class="text-sm text-gray-500 mb-4"></p>
 
             <!-- Tombol -->
             <div class="flex justify-end gap-3 mt-6">
@@ -65,5 +71,73 @@
         </form>
     </div>
 </div>
+
+<!-- AUTOSAVE SCRIPT -->
+<script>
+let autosaveTimer = null;
+
+function autosave() {
+    const status = document.getElementById('autosave-status');
+
+    fetch("{{ route('karya.autosave') }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "X-CSRF-TOKEN": "{{ csrf_token() }}"
+        },
+        body: JSON.stringify({
+            karya_id: document.getElementById('karya_id').value,
+            judul: document.querySelector('[name="judul"]').value,
+            isi: document.querySelector('[name="isi"]').value,
+            tags: document.querySelector('[name="tags"]').value,
+        })
+    })
+    .then(res => res.json())
+    .then(res => {
+        document.getElementById('karya_id').value = res.karya_id;
+        status.innerText = "🟢 Draft tersimpan (" + res.saved_at + ")";
+    })
+    .catch(() => {
+        status.innerText = "🔴 Gagal menyimpan draft";
+    });
+}
+
+document.querySelectorAll('input, textarea, select').forEach(el => {
+    el.addEventListener('input', () => {
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(autosave, 3000);
+    });
+});
+</script>
+<!-- CKEDITOR -->
+<script src="https://cdn.ckeditor.com/ckeditor5/40.2.0/classic/ckeditor.js"></script>
+
+<script>
+ClassicEditor
+    .create(document.querySelector('#editor'), {
+        toolbar: [
+            'heading',
+            '|',
+            'bold', 'italic', 'underline',
+            '|',
+            'bulletedList', 'numberedList',
+            '|',
+            'blockQuote',
+            '|',
+            'undo', 'redo'
+        ]
+    })
+    .then(editor => {
+        // Sinkronkan ke textarea untuk autosave & submit
+        editor.model.document.on('change:data', () => {
+            document.querySelector('#editor').value = editor.getData();
+        });
+    })
+    .catch(error => {
+        console.error(error);
+    });
+</script>
+
 
 </x-app-layout>
