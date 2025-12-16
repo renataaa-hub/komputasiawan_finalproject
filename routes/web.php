@@ -74,7 +74,7 @@ Route::get('/subscription', function () {
 })->middleware('auth')->name('subscription');
 
 Route::get('/notification', function () {
-    // Ambil notifikasi user yang login
+    //notifikasi user yang login
     $notifications = Notification::where('user_id', Auth::id())
                         ->orderBy('created_at', 'desc')
                         ->get();
@@ -88,8 +88,6 @@ require __DIR__.'/auth.php';
 Route::post('/karya/autosave', [KaryaController::class, 'autosave'])
     ->middleware('auth')
     ->name('karya.autosave');
-
-// Setelah route karya.store, tambahkan:
 
 // Show Karya (GET)
 Route::get('/karya/{karya}', [KaryaController::class, 'show'])
@@ -110,3 +108,7 @@ Route::put('/karya/{karya}', [KaryaController::class, 'update'])
 Route::delete('/karya/{karya}', [KaryaController::class, 'destroy'])
     ->middleware('auth')
     ->name('karya.destroy');
+// new route (Dashboard)
+Route::get('/dashboard', [KaryaController::class, 'dashboard'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');

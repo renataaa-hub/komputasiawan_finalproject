@@ -172,6 +172,55 @@ class KaryaController extends Controller
 
         return redirect()->route('karya.index')->with('success', 'Karya berhasil dihapus!');
     }
+        public function dashboard(Request $request)
+    {
+        $search = $request->input('search');
+        
+        // Ambil karya user sendiri (untuk section "Karya Saya")
+        $myKarya = Karya::where('user_id', Auth::id())
+            ->orderBy('updated_at', 'desc')
+            ->limit(3)
+            ->get();
+        
+        // Jika ada pencarian, cari dari SEMUA karya yang dipublikasikan
+        if ($search) {
+            $karya = Karya::where('status', 'publish') // Hanya yang sudah dipublikasikan
+                ->where(function($q) use ($search) {
+                    $q->where('judul', 'LIKE', "%{$search}%")
+                    ->orWhere('jenis', 'LIKE', "%{$search}%")
+                    ->orWhere('kategori', 'LIKE', "%{$search}%")
+                    ->orWhere('konten', 'LIKE', "%{$search}%");
+                })
+                ->with('user') // Load relasi user untuk menampilkan penulis
+                ->orderBy('updated_at', 'desc')
+                ->paginate(9);
+        } else {
+            // Jika tidak ada pencarian, tampilkan karya user sendiri
+            $karya = Karya::where('user_id', Auth::id())
+                ->orderBy('updated_at', 'desc')
+                ->paginate(6);
+        }
 
+        // Data trending (static untuk sementara)
+        $trending = [
+            (object)[
+                'title' => 'Karya Pertama',
+                'deskripsi' => 'Sebuah karya menarik tentang petualangan fantasi.',
+                'rating' => 4.8
+            ],
+            (object)[
+                'title' => 'Karya Kedua',
+                'deskripsi' => 'Cerita drama penuh emosi yang menyentuh hati.',
+                'rating' => 4.6
+            ],
+            (object)[
+                'title' => 'Karya Ketiga',
+                'deskripsi' => 'Komedi ringan yang cocok menemani waktu santai.',
+                'rating' => 4.7
+            ],
+        ];
+
+        return view('dashboard', compact('trending', 'karya', 'myKarya', 'search'));
+    }
 
 }
