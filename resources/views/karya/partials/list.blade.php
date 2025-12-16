@@ -6,19 +6,27 @@
         <div class="bg-white rounded-xl shadow hover:shadow-xl border border-gray-200 p-5 transition transform hover:-translate-y-1">
 
             <h2 class="text-xl font-semibold mb-1 text-gray-800">{{ $karya->judul }}</h2>
-            <p class="text-sm text-gray-500 capitalize">{{ $karya->jenis }}</p>
+            <p class="text-sm text-gray-500 capitalize">{{ $karya->jenis ?? 'Tidak ada jenis' }}</p>
 
             <p class="mt-3 text-gray-700 text-sm line-clamp-3">
-                {{ $karya->deskripsi ?? 'Tidak ada deskripsi.' }}
+                {{ $karya->deskripsi ?? Str::limit(strip_tags($karya->konten), 100) }}
             </p>
 
             <span class="inline-block mt-3 text-xs px-2 py-1 rounded {{ $statusColor }}">
                 {{ ucfirst($karya->status) }}
             </span>
 
-            <div class="mt-4 flex justify-between">
-                <a href="#" class="text-blue-600 text-sm hover:underline font-medium">Lihat</a>
-                <a href="#" class="text-yellow-600 text-sm hover:underline font-medium">Edit</a>
+            <div class="mt-4 flex justify-between items-center">
+                <div class="flex gap-3">
+                    <a href="{{ route('karya.show', $karya->id) }}" class="text-blue-600 text-sm hover:underline font-medium">Lihat</a>
+                    <a href="{{ route('karya.edit', $karya->id) }}" class="text-yellow-600 text-sm hover:underline font-medium">Edit</a>
+                </div>
+                
+                <form action="{{ route('karya.destroy', $karya->id) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus karya ini?')">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="text-red-600 text-sm hover:underline font-medium">Hapus</button>
+                </form>
             </div>
 
         </div>

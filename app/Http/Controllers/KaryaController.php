@@ -111,7 +111,67 @@ class KaryaController extends Controller
         $karya = Karya::where('user_id', Auth()->id())->get();
         return view('karya.monetisasi', compact('karya'));
     }
+    // Tambahkan method ini di KaryaController
 
+    public function show(Karya $karya)
+    {
+        // Pastikan user hanya bisa lihat karya sendiri
+        if ($karya->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        return view('karya.show', compact('karya'));
+    }
+
+    public function edit(Karya $karya)
+    {
+        // Pastikan user hanya bisa edit karya sendiri
+        if ($karya->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        return view('karya.edit', compact('karya'));
+    }
+
+    public function update(Request $request, Karya $karya)
+    {
+        // Pastikan user hanya bisa update karya sendiri
+        if ($karya->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        $validated = $request->validate([
+            'judul' => 'required|string|max:255',
+            'jenis' => 'required|string|max:100',
+            'deskripsi' => 'nullable|string',
+            'isi' => 'required|string',
+            'tags' => 'nullable|string',
+            'cover' => 'nullable|image|max:2048',
+        ]);
+
+        $karya->update([
+            'judul' => $validated['judul'],
+            'slug' => Str::slug($validated['judul']),
+            'konten' => $validated['isi'],
+            'kategori' => $validated['tags'] ?? null,
+            'status' => $request->has('publish') ? 'publish' : 'draft',
+            'is_draft' => !$request->has('publish'),
+        ]);
+
+        return redirect()->route('karya.index')->with('success', 'Karya berhasil diupdate!');
+    }
+
+    public function destroy(Karya $karya)
+    {
+        // Pastikan user hanya bisa hapus karya sendiri
+        if ($karya->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        $karya->delete();
+
+        return redirect()->route('karya.index')->with('success', 'Karya berhasil dihapus!');
+    }
 
 
 }

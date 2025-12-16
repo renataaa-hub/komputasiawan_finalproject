@@ -6,31 +6,30 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
+    public function up(): void
     {
         Schema::create('karyas', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id');
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('judul');
-            $table->enum('jenis', ['buku', 'novel', 'cerpen', 'artikel']);
+            $table->string('slug')->unique();
+            $table->string('jenis')->nullable();
             $table->text('deskripsi')->nullable();
-            $table->longText('isi');
+            $table->longText('konten');
+            $table->string('kategori')->nullable();
+            $table->enum('status', ['draft', 'publish'])->default('draft');
+            $table->boolean('is_draft')->default(true);
+            $table->enum('akses', ['publik', 'pribadi'])->default('publik');
+            $table->string('cover')->nullable();
+            $table->string('thumbnail')->nullable();
+            $table->enum('status_monetisasi', ['active', 'inactive'])->default('inactive');
+            $table->integer('harga')->nullable();
+            $table->integer('pendapatan')->default(0);
+            $table->integer('views')->default(0);
             $table->timestamps();
-
-            // Foreign Key Constraint
-            $table->foreign('user_id')
-                ->references('id')
-                ->on('users')
-                ->onDelete('cascade');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('karyas');
