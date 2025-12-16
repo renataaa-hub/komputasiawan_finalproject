@@ -88,3 +88,25 @@ require __DIR__.'/auth.php';
 Route::post('/karya/autosave', [KaryaController::class, 'autosave'])
     ->middleware('auth')
     ->name('karya.autosave');
+
+// Setelah route karya.store, tambahkan:
+
+// Show Karya (GET)
+Route::get('/karya/{karya}', [KaryaController::class, 'show'])
+    ->middleware('auth')
+    ->name('karya.show');
+
+// Edit Karya (GET form)
+Route::get('/karya/{karya}/edit', [KaryaController::class, 'edit'])
+    ->middleware('auth')
+    ->name('karya.edit');
+
+// Update Karya (PUT/PATCH)
+Route::put('/karya/{karya}', [KaryaController::class, 'update'])
+    ->middleware('auth')
+    ->name('karya.update');
+
+// Delete Karya (DELETE)
+Route::delete('/karya/{karya}', [KaryaController::class, 'destroy'])
+    ->middleware('auth')
+    ->name('karya.destroy');
