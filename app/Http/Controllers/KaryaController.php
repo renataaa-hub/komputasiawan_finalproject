@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Karya;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class KaryaController extends Controller
 {
@@ -32,31 +33,34 @@ class KaryaController extends Controller
             'jenis' => 'required|string|max:100',
             'deskripsi' => 'nullable|string',
             'isi' => 'required|string',
-            'status' => 'in:draft,published',
             'tags' => 'nullable|string',
             'cover' => 'nullable|image|max:2048',
-            'thumbnail' => 'nullable|image|max:2048',
-            'status_monetisasi' => 'nullable|in:active,inactive',
-            'harga' => 'nullable|integer',
-            'pendapatan' => 'nullable|integer',
-            
         ]);
-        Karya::updateOrCreate(
-        [
-            'id' => $request->karya_id,
-            'user_id' => Auth::id(),
-        ],
-        [
-            'judul' => $validated['judul'],
-            'slug' => Str::slug($validated['judul']),
-            'konten' => $validated['isi'],
-            'kategori' => $validated['tags'] ?? null,
-            'status' => 'publish',
-            'is_draft' => false,
-            'akses' => 'publik',
-        ]
-    );
 
+        // Handle upload cover jika ada
+        $coverPath = null;
+        if ($request->hasFile('cover')) {
+            $coverPath = $request->file('cover')->store('covers', 'public');
+        }
+
+        Karya::updateOrCreate(
+            [
+                'id' => $request->karya_id,
+                'user_id' => Auth::id(),
+            ],
+            [
+                'judul' => $validated['judul'],
+                'slug' => Str::slug($validated['judul']),
+                'jenis' => $validated['jenis'], // ← Tambahkan ini
+                'deskripsi' => $validated['deskripsi'] ?? null, // ← Tambahkan ini
+                'konten' => $validated['isi'],
+                'kategori' => $validated['tags'] ?? null,
+                'status' => 'publish',
+                'is_draft' => false,
+                'akses' => 'publik',
+                'cover' => $coverPath ?? null, // ← Tambahkan ini
+            ]
+        );
 
         return redirect()->route('karya.index')->with('success', 'Karya berhasil dibuat!');
     }
@@ -115,19 +119,28 @@ class KaryaController extends Controller
 
     public function show(Karya $karya)
     {
-        // Pastikan user hanya bisa lihat karya sendiri
-        if ($karya->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
+        // Jika karya dipublikasikan (publish), semua orang bisa lihat
+        if ($karya->status === 'publish') {
+            // Increment views (opsional)
+            $karya->increment('views');
+            
+            return view('karya.show', compact('karya'));
         }
-
-        return view('karya.show', compact('karya'));
+        
+        // Jika karya masih draft, hanya pemilik yang bisa lihat
+        if ($karya->status === 'draft' && $karya->user_id === Auth::id()) {
+            return view('karya.show', compact('karya'));
+        }
+        
+        // Selain itu, unauthorized
+        abort(403, 'Karya ini tidak dapat diakses');
     }
 
     public function edit(Karya $karya)
     {
-        // Pastikan user hanya bisa edit karya sendiri
+        // Hanya pemilik yang bisa edit
         if ($karya->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
+            abort(403, 'Anda tidak memiliki akses untuk mengedit karya ini');
         }
 
         return view('karya.edit', compact('karya'));
@@ -135,9 +148,9 @@ class KaryaController extends Controller
 
     public function update(Request $request, Karya $karya)
     {
-        // Pastikan user hanya bisa update karya sendiri
+        // Hanya pemilik yang bisa update
         if ($karya->user_id !== Auth::id()) {
-            abort(403, 'Unauthorized');
+            abort(403, 'Anda tidak memiliki akses untuk mengupdate karya ini');
         }
 
         $validated = $request->validate([
@@ -149,13 +162,26 @@ class KaryaController extends Controller
             'cover' => 'nullable|image|max:2048',
         ]);
 
+        // Handle upload cover jika ada
+        $coverPath = $karya->cover; // Gunakan cover lama sebagai default
+        if ($request->hasFile('cover')) {
+            // Hapus cover lama jika ada
+            if ($karya->cover && Storage::disk('public')->exists($karya->cover)) {
+                Storage::disk('public')->delete($karya->cover);
+            }
+            $coverPath = $request->file('cover')->store('covers', 'public');
+        }
+
         $karya->update([
             'judul' => $validated['judul'],
             'slug' => Str::slug($validated['judul']),
+            'jenis' => $validated['jenis'], // ← Tambahkan ini
+            'deskripsi' => $validated['deskripsi'] ?? null, // ← Tambahkan ini
             'konten' => $validated['isi'],
             'kategori' => $validated['tags'] ?? null,
             'status' => $request->has('publish') ? 'publish' : 'draft',
             'is_draft' => !$request->has('publish'),
+            'cover' => $coverPath, // ← Tambahkan ini
         ]);
 
         return redirect()->route('karya.index')->with('success', 'Karya berhasil diupdate!');
