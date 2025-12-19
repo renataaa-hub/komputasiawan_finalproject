@@ -139,3 +139,21 @@ Route::middleware('auth')->post('/notifications/mark-all-read', function() {
         ->update(['read_at' => now()]);
     return back()->with('success', 'Semua notifikasi ditandai sudah dibaca');
 })->name('notification.markAllRead');
+
+use App\Http\Controllers\SubscriptionController;
+
+// Subscription Routes
+Route::middleware('auth')->group(function () {
+    Route::get('/subscription', [SubscriptionController::class, 'index'])->name('subscription');
+    Route::post('/subscription/subscribe', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
+    Route::get('/subscription/finish', [SubscriptionController::class, 'finish'])->name('subscription.finish');
+    Route::post('/subscription/{id}/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
+});
+
+// Webhook (NO AUTH!)
+Route::post('/midtrans/webhook', [SubscriptionController::class, 'webhook'])->name('midtrans.webhook');
+
+// Protected Routes with Subscription Check
+Route::middleware(['auth', 'subscription:monetization'])->group(function () {
+    Route::get('/monetisasi', [KaryaController::class, 'monetisasi'])->name('karya.monetisasi');
+});

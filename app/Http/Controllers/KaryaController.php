@@ -28,6 +28,19 @@ class KaryaController extends Controller
 
     public function store(Request $request)
     {
+        $user = Auth::user();
+        
+        // Check if publishing or drafting
+        $isPublishing = $request->has('publish') || $request->input('status') === 'publish';
+        
+        if ($isPublishing && !$user->canPublish()) {
+            return back()->with('error', 'Batas publikasi Anda sudah tercapai. Upgrade subscription Anda!');
+        }
+        
+        if (!$isPublishing && !$user->canCreateDraft()) {
+            return back()->with('error', 'Batas draft Anda sudah tercapai. Upgrade subscription Anda!');
+        }
+
         $validated = $request->validate([
             'judul' => 'required|string|max:255',
             'jenis' => 'required|string|max:100',
@@ -37,7 +50,6 @@ class KaryaController extends Controller
             'cover' => 'nullable|image|max:2048',
         ]);
 
-        // Handle upload cover jika ada
         $coverPath = null;
         if ($request->hasFile('cover')) {
             $coverPath = $request->file('cover')->store('covers', 'public');
@@ -46,23 +58,23 @@ class KaryaController extends Controller
         Karya::updateOrCreate(
             [
                 'id' => $request->karya_id,
-                'user_id' => Auth::id(),
+                'user_id' => $user->id,
             ],
             [
                 'judul' => $validated['judul'],
                 'slug' => Str::slug($validated['judul']),
-                'jenis' => $validated['jenis'], // ← Tambahkan ini
-                'deskripsi' => $validated['deskripsi'] ?? null, // ← Tambahkan ini
+                'jenis' => $validated['jenis'],
+                'deskripsi' => $validated['deskripsi'] ?? null,
                 'konten' => $validated['isi'],
                 'kategori' => $validated['tags'] ?? null,
-                'status' => 'publish',
-                'is_draft' => false,
+                'status' => $isPublishing ? 'publish' : 'draft',
+                'is_draft' => !$isPublishing,
                 'akses' => 'publik',
-                'cover' => $coverPath ?? null, // ← Tambahkan ini
+                'cover' => $coverPath ?? null,
             ]
         );
 
-        return redirect()->route('karya.index')->with('success', 'Karya berhasil dibuat!');
+        return redirect()->route('karya.index')->with('success', 'Karya berhasil disimpan!');
     }
 
     public function autosave(Request $request)
