@@ -7,7 +7,7 @@
             <form action="{{ route('karya.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
 
-                <!-- ID DRAFT (WAJIB UNTUK AUTOSAVE) -->
+                <!-- ID DRAFT -->
                 <input type="hidden" id="karya_id" name="karya_id">
 
                 <!-- Judul -->
