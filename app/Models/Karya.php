@@ -9,7 +9,7 @@ class Karya extends Model
 {
     use HasFactory;
 
-    protected $table = 'karyas'; // ← Tambahkan ini untuk pakai tabel 'karyas'
+    protected $table = 'karyas';
 
     protected $fillable = [
         'user_id',
@@ -33,5 +33,32 @@ class Karya extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function likes()
+    {
+        return $this->hasMany(Like::class);
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(Comment::class)->latest();
+    }
+
+    // Helper method
+    public function isLikedBy($user)
+    {
+        if (!$user) return false;
+        return $this->likes()->where('user_id', $user->id)->exists();
+    }
+
+    public function likesCount()
+    {
+        return $this->likes()->count();
+    }
+
+    public function commentsCount()
+    {
+        return $this->comments()->count();
     }
 }

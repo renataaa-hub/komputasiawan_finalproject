@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\KaryaController;
+use App\Http\Controllers\LikeController;
+use App\Http\Controllers\CommentController;
 use App\Models\Notification;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -112,3 +114,28 @@ Route::delete('/karya/{karya}', [KaryaController::class, 'destroy'])
 Route::get('/dashboard', [KaryaController::class, 'dashboard'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
+
+
+// Like & Comment Routes
+Route::middleware('auth')->group(function () {
+    Route::post('/karya/{karya}/like', [LikeController::class, 'toggle'])->name('karya.like');
+    Route::post('/karya/{karya}/comment', [CommentController::class, 'store'])->name('karya.comment');
+    Route::delete('/comment/{comment}', [CommentController::class, 'destroy'])->name('comment.destroy');
+});
+
+// Notification mark as read
+Route::middleware('auth')->post('/notification/{notification}/read', function($id) {
+    $notification = Notification::findOrFail($id);
+    if ($notification->user_id === Auth::id()) {
+        $notification->markAsRead();
+    }
+    return back();
+})->name('notification.read');
+
+// Mark all notifications as read
+Route::middleware('auth')->post('/notifications/mark-all-read', function() {
+    Notification::where('user_id', Auth::id())
+        ->whereNull('read_at')
+        ->update(['read_at' => now()]);
+    return back()->with('success', 'Semua notifikasi ditandai sudah dibaca');
+})->name('notification.markAllRead');

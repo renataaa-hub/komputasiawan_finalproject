@@ -99,14 +99,26 @@ class KaryaController extends Controller
 
     public function statistik()
     {
-        $karya = Karya::where('user_id', auth()->id())->get();
+        $karya = Karya::where('user_id', auth()->id())
+            ->withCount(['likes', 'comments'])
+            ->get();
 
         $totalKarya = $karya->count();
         $totalDraft = $karya->where('status', 'draft')->count();
-        $totalPublished = $karya->where('status', 'published')->count();
-        $totalViews = $karya->sum('views'); // pastikan kolom views ada di tabel
+        $totalPublished = $karya->where('status', 'publish')->count();
+        $totalViews = $karya->sum('views');
+        $totalLikes = $karya->sum('likes_count');
+        $totalComments = $karya->sum('comments_count');
 
-        return view('karya.statistik', compact('karya', 'totalKarya', 'totalDraft', 'totalPublished', 'totalViews'));
+        return view('karya.statistik', compact(
+            'karya', 
+            'totalKarya', 
+            'totalDraft', 
+            'totalPublished', 
+            'totalViews',
+            'totalLikes',
+            'totalComments'
+        ));
     }
 
 
