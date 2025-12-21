@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
-        IMAGE_NAME = 'laravel-app'
+        IMAGE_NAME = 'penaAwan-app'
         IMAGE_TAG = 'latest'
     }
 
