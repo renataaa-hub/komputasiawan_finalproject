@@ -27,7 +27,7 @@ pipeline {
         stage('Login to Azure Container Registry') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'acr-credentials',
+                    credentialsId: 'acr-credentials-1',
                     usernameVariable: 'ACR_USER',
                     passwordVariable: 'ACR_PASS'
                 )]) {
