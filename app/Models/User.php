@@ -71,36 +71,76 @@ class User extends Authenticatable
     public function getPlanName()
     {
         $subscription = $this->activeSubscription;
-        return $subscription ? ucfirst($subscription->plan) : 'Free';
+        return $subscription ? ucfirst($subscription->plan) : 'Basic (Free)';
+    }
+
+    public function getPlanConfig()
+    {
+        $subscription = $this->activeSubscription;
+        
+        if (!$subscription) {
+            // Return free plan config
+            return config('plans.free');
+        }
+        
+        return config("plans.{$subscription->plan}");
     }
 
     public function canCreateDraft()
     {
-        $subscription = $this->activeSubscription;
+        $planConfig = $this->getPlanConfig();
+        $maxDrafts = $planConfig['features']['max_drafts'];
         
-        if (!$subscription) {
-            // Free user: 1 draft
-            return $this->karyas()->where('status', 'draft')->count() < 1;
+        // Unlimited
+        if (is_null($maxDrafts)) {
+            return true;
         }
         
-        return $subscription->canCreateDraft();
+        $currentDrafts = $this->karyas()->where('status', 'draft')->count();
+        return $currentDrafts < $maxDrafts;
     }
 
     public function canPublish()
     {
-        $subscription = $this->activeSubscription;
+        $planConfig = $this->getPlanConfig();
+        $maxPublications = $planConfig['features']['max_publications'];
         
-        if (!$subscription) {
-            // Free user: 1 publication
-            return $this->karyas()->where('status', 'publish')->count() < 1;
+        // Unlimited
+        if (is_null($maxPublications)) {
+            return true;
         }
         
-        return $subscription->canPublish();
+        $currentPublications = $this->karyas()->where('status', 'publish')->count();
+        return $currentPublications < $maxPublications;
     }
 
     public function hasFeature($feature)
     {
-        $subscription = $this->activeSubscription;
-        return $subscription ? $subscription->hasFeature($feature) : false;
+        $planConfig = $this->getPlanConfig();
+        return $planConfig['features'][$feature] ?? false;
+    }
+
+    public function getDraftLimit()
+    {
+        $planConfig = $this->getPlanConfig();
+        $maxDrafts = $planConfig['features']['max_drafts'];
+        return is_null($maxDrafts) ? '∞' : $maxDrafts;
+    }
+
+    public function getPublicationLimit()
+    {
+        $planConfig = $this->getPlanConfig();
+        $maxPubs = $planConfig['features']['max_publications'];
+        return is_null($maxPubs) ? '∞' : $maxPubs;
+    }
+
+    public function getCurrentDrafts()
+    {
+        return $this->karyas()->where('status', 'draft')->count();
+    }
+
+    public function getCurrentPublications()
+    {
+        return $this->karyas()->where('status', 'publish')->count();
     }
 }

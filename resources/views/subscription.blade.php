@@ -4,7 +4,7 @@
         <!-- Header -->
         <div class="mb-8 text-center">
             <h1 class="text-4xl font-bold text-gray-900 mb-3">Pilih Paket Subscription</h1>
-            <p class="text-gray-600 text-lg">Tingkatkan pengalaman menulis Anda dengan fitur premium</p>
+            <p class="text-gray-600 text-lg">Mulai gratis dengan Basic, atau upgrade untuk lebih banyak fitur!</p>
         </div>
 
         <!-- Messages -->
@@ -20,14 +20,14 @@
         </div>
         @endif
 
-        <!-- Current Subscription -->
+        <!-- Current Plan Status -->
         @if($activeSubscription)
         <div class="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-6 shadow-lg">
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                 <div class="flex-1">
                     <div class="flex items-center gap-3 mb-3">
                         <span class="px-5 py-2 bg-blue-600 text-white rounded-full text-sm font-bold shadow">
-                            🎉 {{ $plans[$activeSubscription->plan]['name'] }}
+                            🎉 {{ ucfirst($activeSubscription->plan) }}
                         </span>
                         <span class="text-green-600 font-semibold">● Aktif</span>
                     </div>
@@ -40,32 +40,28 @@
                     <!-- Usage Stats -->
                     <div class="grid grid-cols-2 gap-4">
                         @php
-                            $maxDrafts = $plans[$activeSubscription->plan]['features']['max_drafts'];
-                            $maxPubs = $plans[$activeSubscription->plan]['features']['max_publications'];
-                            $draftPercent = is_null($maxDrafts) ? 0 : ($stats['drafts'] / $maxDrafts) * 100;
-                            $pubPercent = is_null($maxPubs) ? 0 : ($stats['publications'] / $maxPubs) * 100;
+                            $draftPercent = $stats['max_drafts'] === '∞' ? 0 : ($stats['drafts'] / (int)$stats['max_drafts']) * 100;
+                            $pubPercent = $stats['max_publications'] === '∞' ? 0 : ($stats['publications'] / (int)$stats['max_publications']) * 100;
                         @endphp
                         
-                        <!-- Drafts -->
                         <div class="bg-white rounded-lg p-4 border-2 border-gray-200">
                             <p class="text-sm text-gray-600 mb-2 font-medium">📝 Draft</p>
                             <p class="text-2xl font-bold text-gray-900 mb-2">
-                                {{ $stats['drafts'] }} / {{ is_null($maxDrafts) ? '∞' : $maxDrafts }}
+                                {{ $stats['drafts'] }} / {{ $stats['max_drafts'] }}
                             </p>
-                            @if(!is_null($maxDrafts))
+                            @if($stats['max_drafts'] !== '∞')
                             <div class="w-full bg-gray-200 rounded-full h-2">
                                 <div class="bg-blue-600 h-2 rounded-full" style="width: {{ min($draftPercent, 100) }}%"></div>
                             </div>
                             @endif
                         </div>
                         
-                        <!-- Publications -->
                         <div class="bg-white rounded-lg p-4 border-2 border-gray-200">
                             <p class="text-sm text-gray-600 mb-2 font-medium">📚 Publikasi</p>
                             <p class="text-2xl font-bold text-gray-900 mb-2">
-                                {{ $stats['publications'] }} / {{ is_null($maxPubs) ? '∞' : $maxPubs }}
+                                {{ $stats['publications'] }} / {{ $stats['max_publications'] }}
                             </p>
-                            @if(!is_null($maxPubs))
+                            @if($stats['max_publications'] !== '∞')
                             <div class="w-full bg-gray-200 rounded-full h-2">
                                 <div class="bg-green-600 h-2 rounded-full" style="width: {{ min($pubPercent, 100) }}%"></div>
                             </div>
@@ -75,7 +71,7 @@
                 </div>
                 
                 <form action="{{ route('subscription.cancel', $activeSubscription->id) }}" method="POST" 
-                    onsubmit="return confirm('Yakin ingin membatalkan subscription? Anda akan kehilangan akses ke fitur premium setelah masa aktif berakhir.')">
+                    onsubmit="return confirm('Yakin ingin membatalkan subscription? Anda akan kembali ke paket Basic (Free) setelah masa aktif berakhir.')">
                     @csrf
                     <button type="submit" class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium shadow-md">
                         Batalkan Subscription
@@ -84,29 +80,97 @@
             </div>
         </div>
         @else
-        <!-- Free Plan Info -->
-        <div class="mb-8 bg-yellow-50 border-2 border-yellow-300 rounded-xl p-6">
+        <!-- Free Plan Status -->
+        <div class="mb-8 bg-gradient-to-r from-gray-50 to-gray-100 border-2 border-gray-300 rounded-xl p-6">
             <div class="flex items-start gap-4">
-                <div class="text-4xl">⚠️</div>
+                <div class="text-4xl">🆓</div>
                 <div class="flex-1">
-                    <h3 class="text-lg font-bold text-yellow-900 mb-2">Anda menggunakan Paket Gratis</h3>
-                    <p class="text-yellow-800 mb-3">Limit: <strong>1 Draft</strong> dan <strong>1 Publikasi</strong></p>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div>📝 Draft: <strong>{{ $stats['drafts'] }} / 1</strong></div>
-                        <div>📚 Publikasi: <strong>{{ $stats['publications'] }} / 1</strong></div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <h3 class="text-xl font-bold text-gray-900">Paket Basic (Gratis)</h3>
+                        <span class="px-3 py-1 bg-gray-200 text-gray-700 rounded-full text-xs font-medium">Aktif</span>
+                    </div>
+                    <p class="text-gray-600 mb-4">Anda sedang menggunakan paket gratis. Upgrade untuk mendapatkan lebih banyak fitur!</p>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        @php
+                            $draftPercent = ($stats['drafts'] / 3) * 100;
+                            $pubPercent = ($stats['publications'] / 5) * 100;
+                        @endphp
+                        
+                        <div class="bg-white rounded-lg p-3 border">
+                            <p class="text-xs text-gray-500 mb-1">📝 Draft</p>
+                            <p class="text-lg font-bold text-gray-900 mb-1">{{ $stats['drafts'] }} / 3</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: {{ min($draftPercent, 100) }}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg p-3 border">
+                            <p class="text-xs text-gray-500 mb-1">📚 Publikasi</p>
+                            <p class="text-lg font-bold text-gray-900 mb-1">{{ $stats['publications'] }} / 5</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-600 h-2 rounded-full" style="width: {{ min($pubPercent, 100) }}%"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
         @endif
 
-        <!-- Pricing Cards -->
+        <!-- Pricing Cards (Only Pro & Premium) -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            
+            <!-- FREE BASIC CARD (Non-clickable, just for reference) -->
+            <div class="relative bg-gray-50 rounded-2xl shadow-lg border-2 border-gray-300 opacity-90">
+                <div class="p-8">
+                    <div class="text-center mb-6">
+                        <div class="inline-flex items-center justify-center w-20 h-20 bg-gray-200 text-gray-600 rounded-full mb-4">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                            </svg>
+                        </div>
+                        <h2 class="text-3xl font-bold text-gray-900 mb-2">Basic</h2>
+                        <p class="text-gray-600">Paket gratis untuk memulai</p>
+                    </div>
+                    
+                    <div class="text-center mb-8 pb-6 border-b-2">
+                        <div class="text-5xl font-bold text-gray-900 mb-2">Rp 0</div>
+                        <p class="text-gray-500">selamanya</p>
+                    </div>
+                    
+                    <div class="space-y-4 mb-8">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-gray-700 font-medium"><strong>3</strong> Draft</span>
+                        </div>
+                        
+                        <div class="flex items-start gap-3">
+                            <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-gray-700 font-medium"><strong>5</strong> Publikasi</span>
+                        </div>
+                        
+                        <div class="flex items-start gap-3">
+                            <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-gray-700">Statistik Dasar</span>
+                        </div>
+                    </div>
+                    
+                    <div class="w-full py-4 px-6 bg-gray-300 text-gray-600 rounded-xl font-bold text-lg text-center cursor-not-allowed">
+                        {{ $activeSubscription ? 'Paket Saat Ini' : '✓ Paket Aktif' }}
+                    </div>
+                </div>
+            </div>
             
             @foreach($plans as $key => $plan)
             <div class="relative bg-white rounded-2xl shadow-xl border-2 {{ $key === 'pro' ? 'border-green-500 transform scale-105' : 'border-gray-200' }} hover:shadow-2xl transition-all">
                 
-                <!-- Popular Badge -->
                 @if($key === 'pro')
                 <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-1 rounded-full text-sm font-bold shadow-lg">
                     ⭐ PALING POPULER
@@ -114,14 +178,9 @@
                 @endif
                 
                 <div class="p-8">
-                    <!-- Plan Icon & Name -->
                     <div class="text-center mb-6 {{ $key === 'pro' ? 'mt-3' : '' }}">
-                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 {{ $key === 'basic' ? 'bg-blue-100 text-blue-600' : ($key === 'pro' ? 'bg-green-100 text-green-600' : 'bg-purple-100 text-purple-600') }}">
-                            @if($key === 'basic')
-                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
-                            </svg>
-                            @elseif($key === 'pro')
+                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 {{ $key === 'pro' ? 'bg-green-100 text-green-600' : 'bg-purple-100 text-purple-600' }}">
+                            @if($key === 'pro')
                             <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                             </svg>
@@ -135,7 +194,6 @@
                         <p class="text-gray-600">{{ $plan['description'] }}</p>
                     </div>
                     
-                    <!-- Price -->
                     <div class="text-center mb-8 pb-6 border-b-2">
                         <div class="text-5xl font-bold text-gray-900 mb-2">
                             Rp {{ number_format($plan['price'], 0, ',', '.') }}
@@ -143,9 +201,7 @@
                         <p class="text-gray-500">per bulan</p>
                     </div>
                     
-                    <!-- Features -->
                     <div class="space-y-4 mb-8">
-                        <!-- Drafts -->
                         <div class="flex items-start gap-3">
                             <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
@@ -155,7 +211,6 @@
                             </span>
                         </div>
                         
-                        <!-- Publications -->
                         <div class="flex items-start gap-3">
                             <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
@@ -165,17 +220,6 @@
                             </span>
                         </div>
                         
-                        <!-- Statistics -->
-                        <div class="flex items-start gap-3">
-                            <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                            </svg>
-                            <span class="text-gray-700">
-                                {{ $plan['features']['full_statistics'] ? 'Statistik Lengkap' : 'Statistik Dasar' }}
-                            </span>
-                        </div>
-                        
-                        <!-- Collaboration -->
                         @if($plan['features']['collaboration'])
                         <div class="flex items-start gap-3">
                             <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -185,7 +229,6 @@
                         </div>
                         @endif
                         
-                        <!-- Monetization -->
                         @if($plan['features']['monetization'])
                         <div class="flex items-start gap-3">
                             <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -195,7 +238,13 @@
                         </div>
                         @endif
                         
-                        <!-- Download Stats -->
+                        <div class="flex items-start gap-3">
+                            <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-gray-700">Statistik Lengkap</span>
+                        </div>
+                        
                         @if($plan['features']['download_statistics'])
                         <div class="flex items-start gap-3">
                             <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -205,7 +254,6 @@
                         </div>
                         @endif
                         
-                        <!-- Priority Support -->
                         @if($plan['features']['priority_support'])
                         <div class="flex items-start gap-3">
                             <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -215,7 +263,6 @@
                         </div>
                         @endif
                         
-                        <!-- Consultation -->
                         @if($plan['features']['consultation'])
                         <div class="flex items-start gap-3">
                             <svg class="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -232,11 +279,9 @@
                         <input type="hidden" name="plan" value="{{ $key }}">
                         <button type="submit" 
                             class="w-full py-4 px-6 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-lg
-                            {{ $key === 'basic' ? 'bg-blue-600 hover:bg-blue-700 text-white' : '' }}
-                            {{ $key === 'pro' ? 'bg-green-600 hover:bg-green-700 text-white' : '' }}
-                            {{ $key === 'premium' ? 'bg-purple-600 hover:bg-purple-700 text-white' : '' }}"
+                            {{ $key === 'pro' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white' }}"
                             @if($activeSubscription) disabled @endif>
-                            {{ $activeSubscription ? '✓ Sudah Berlangganan' : 'Pilih ' . $plan['name'] }}
+                            {{ $activeSubscription ? '✓ Sudah Berlangganan' : 'Upgrade ke ' . $plan['name'] }}
                         </button>
                     </form>
                 </div>
@@ -249,12 +294,12 @@
         <div class="bg-gray-50 rounded-xl p-8 text-center">
             <h3 class="text-xl font-bold text-gray-900 mb-4">💳 Metode Pembayaran Tersedia</h3>
             <div class="flex flex-wrap justify-center gap-4 mb-6">
-                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">Credit Card</span>
-                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">GoPay</span>
-                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">OVO</span>
-                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">DANA</span>
-                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">Bank Transfer</span>
-                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">Alfamart</span>
+                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">💳 Credit Card</span>
+                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">📱 GoPay</span>
+                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">💰 OVO</span>
+                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">💵 DANA</span>
+                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">🏦 Bank Transfer</span>
+                <span class="px-4 py-2 bg-white rounded-lg shadow text-sm font-medium">🏪 Alfamart</span>
             </div>
             <p class="text-gray-600">
                 🔒 Pembayaran aman dan terenkripsi melalui Midtrans<br>

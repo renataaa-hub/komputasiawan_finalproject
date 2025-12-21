@@ -157,3 +157,26 @@ Route::post('/midtrans/webhook', [SubscriptionController::class, 'webhook'])->na
 Route::middleware(['auth', 'subscription:monetization'])->group(function () {
     Route::get('/monetisasi', [KaryaController::class, 'monetisasi'])->name('karya.monetisasi');
 });
+
+// Karya routes dengan limit check
+Route::middleware('auth')->group(function () {
+    Route::get('/karya', [KaryaController::class, 'index'])->name('karya.index');
+    Route::get('/karya/create', [KaryaController::class, 'create'])->name('karya.create');
+    Route::post('/karya', [KaryaController::class, 'store'])->name('karya.store');
+    Route::get('/karya/{karya}', [KaryaController::class, 'show'])->name('karya.show');
+    Route::get('/karya/{karya}/edit', [KaryaController::class, 'edit'])->name('karya.edit');
+    Route::put('/karya/{karya}', [KaryaController::class, 'update'])->name('karya.update');
+    Route::delete('/karya/{karya}', [KaryaController::class, 'destroy'])->name('karya.destroy');
+    
+    Route::get('/statistik', [KaryaController::class, 'statistik'])->name('karya.statistik');
+});
+
+// Protected routes - hanya untuk yang punya subscription
+Route::middleware(['auth', 'subscription:monetization'])->group(function () {
+    Route::get('/monetisasi', [KaryaController::class, 'monetisasi'])->name('karya.monetisasi');
+});
+
+// Jika nanti ada kolaborasi
+Route::middleware(['auth', 'subscription:collaboration'])->group(function () {
+    // Route::get('/collaboration', ...)->name('collaboration.index');
+});
