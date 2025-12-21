@@ -26,12 +26,19 @@ class SubscriptionController extends Controller
     {
         $user = Auth::user();
         $activeSubscription = $user->activeSubscription;
-        $plans = config('plans');
+        
+        // Only show pro and premium plans (basic is free)
+        $plans = [
+            'pro' => config('plans.pro'),
+            'premium' => config('plans.premium'),
+        ];
         
         // Get usage stats
         $stats = [
-            'drafts' => $user->karyas()->where('status', 'draft')->count(),
-            'publications' => $user->karyas()->where('status', 'publish')->count(),
+            'drafts' => $user->getCurrentDrafts(),
+            'publications' => $user->getCurrentPublications(),
+            'max_drafts' => $user->getDraftLimit(),
+            'max_publications' => $user->getPublicationLimit(),
         ];
         
         return view('subscription', compact('activeSubscription', 'plans', 'stats'));
@@ -40,7 +47,7 @@ class SubscriptionController extends Controller
     public function subscribe(Request $request)
     {
         $request->validate([
-            'plan' => 'required|in:pro,premium'
+            'plan' => 'required|in:pro,premium' // ← Hapus 'basic'
         ]);
 
         $user = Auth::user();

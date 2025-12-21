@@ -33,12 +33,17 @@ class KaryaController extends Controller
         // Check if publishing or drafting
         $isPublishing = $request->has('publish') || $request->input('status') === 'publish';
         
+        // Check limits
         if ($isPublishing && !$user->canPublish()) {
-            return back()->with('error', 'Batas publikasi Anda sudah tercapai. Upgrade subscription Anda!');
+            $limit = $user->getPublicationLimit();
+            $current = $user->getCurrentPublications();
+            return back()->with('error', "Batas publikasi tercapai! ({$current}/{$limit}). Upgrade ke Pro atau Premium untuk publikasi lebih banyak.");
         }
         
         if (!$isPublishing && !$user->canCreateDraft()) {
-            return back()->with('error', 'Batas draft Anda sudah tercapai. Upgrade subscription Anda!');
+            $limit = $user->getDraftLimit();
+            $current = $user->getCurrentDrafts();
+            return back()->with('error', "Batas draft tercapai! ({$current}/{$limit}). Upgrade ke Pro atau Premium untuk membuat lebih banyak draft.");
         }
 
         $validated = $request->validate([
