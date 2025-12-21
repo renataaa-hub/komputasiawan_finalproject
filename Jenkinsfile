@@ -3,40 +3,56 @@ pipeline {
 
     stages {
 
-        stage('Checkout Code') {
-            steps {
-                echo 'Checkout source code from GitHub'
-                checkout scm
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker images'
-                sh 'docker-compose build'
+                echo 'Building Docker image...'
+                sh 'docker build -t laravel-app:latest .'
             }
         }
 
-        stage('Run Container') {
+        stage('Login to Azure Container Registry') {
             steps {
-                echo 'Running containers'
-                sh 'docker-compose up -d'
+                echo 'Login to Azure ACR...'
+                withCredentials([usernamePassword(
+                    credentialsId: 'acr-credentials',
+                    usernameVariable: 'ACR_USER',
+                    passwordVariable: 'ACR_PASS'
+                )]) {
+                    sh '''
+                    docker login acrpenaawan2025.azurecr.io \
+                    -u $ACR_USER \
+                    -p $ACR_PASS
+                    '''
+                }
             }
         }
 
-        stage('Check Status') {
+        stage('Tag Docker Image') {
             steps {
-                sh 'docker ps'
+                echo 'Tagging Docker image...'
+                sh '''
+                docker tag laravel-app:latest \
+                acrpenaawan2025.azurecr.io/laravel-app:v1
+                '''
+            }
+        }
+
+        stage('Push Image to ACR') {
+            steps {
+                echo 'Pushing image to ACR...'
+                sh '''
+                docker push acrpenaawan2025.azurecr.io/laravel-app:v1
+                '''
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline berhasil dijalankan'
+            echo 'Docker image successfully pushed to Azure Container Registry'
         }
         failure {
-            echo 'Pipeline gagal'
+            echo 'Pipeline failed. Please check the logs.'
         }
     }
 }
