@@ -2,10 +2,9 @@ pipeline {
     agent any
 
     environment {
-        ACR_NAME = "acrpenaawan2025"
-        ACR_LOGIN_SERVER = "acrpenaawan2025.azurecr.io"
-        IMAGE_NAME = "laravel-app"
-        IMAGE_TAG = "latest"
+        ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
+        IMAGE_NAME = 'laravel-app'
+        IMAGE_TAG = 'latest'
     }
 
     stages {
@@ -18,10 +17,10 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image..."
-                bat """
+                echo 'Building Docker image...'
+                bat '''
                 docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
-                """
+                '''
             }
         }
 
@@ -32,36 +31,38 @@ pipeline {
                     usernameVariable: 'ACR_USER',
                     passwordVariable: 'ACR_PASS'
                 )]) {
-                    bat """
-                    docker login %ACR_LOGIN_SERVER% -u %ACR_USER% -p %ACR_PASS%
-                    """
+                    bat '''
+                    echo %ACR_PASS% | docker login %ACR_LOGIN_SERVER% ^
+                    --username %ACR_USER% ^
+                    --password-stdin
+                    '''
                 }
             }
         }
 
         stage('Tag Docker Image') {
             steps {
-                bat """
+                bat '''
                 docker tag %IMAGE_NAME%:%IMAGE_TAG% %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%
-                """
+                '''
             }
         }
 
         stage('Push Image to ACR') {
             steps {
-                bat """
+                bat '''
                 docker push %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%
-                """
+                '''
             }
         }
     }
 
     post {
         success {
-            echo "Docker image successfully pushed to ACR"
+            echo 'Pipeline SUCCESS: Image pushed to Azure Container Registry'
         }
         failure {
-            echo "Pipeline failed. Please check the logs."
+            echo 'Pipeline FAILED: Check logs'
         }
     }
 }
