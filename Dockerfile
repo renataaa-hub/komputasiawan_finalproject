@@ -3,12 +3,15 @@
 ############################
 # 1) Build frontend (Vite)
 ############################
-FROM node:20-alpine AS nodebuild
+FROM node:20-bookworm-slim AS nodebuild
 WORKDIR /app
 
-# install deps (pakai lockfile kalau ada)
-COPY package*.json ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+# (opsional tapi membantu) upgrade npm biar bug optional deps makin kecil kemungkinan
+RUN npm i -g npm@11
+
+# install deps (wajib copy lockfile juga)
+COPY package.json package-lock.json ./
+RUN npm ci --include=optional
 
 # build assets
 COPY . .
@@ -21,16 +24,10 @@ RUN npm run build
 FROM composer:2 AS composerbuild
 WORKDIR /app
 
-# copy dulu composer files biar cache enak
 COPY composer.json composer.lock ./
-
-# install vendor TANPA scripts dulu (karena artisan belum ada)
 RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts
 
-# baru copy source code (ini yang bikin artisan ada)
 COPY . .
-
-# sekarang jalankan scripts yang butuh artisan
 RUN composer dump-autoload --optimize \
  && php artisan package:discover --ansi
 
@@ -47,18 +44,16 @@ RUN apt-get update && apt-get install -y \
  && a2enmod rewrite \
  && rm -rf /var/lib/apt/lists/*
 
-# set DocumentRoot ke /var/www/public
 ENV APACHE_DOCUMENT_ROOT=/var/www/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
  && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 
-# copy app + vendor
+# app + vendor
 COPY --from=composerbuild /app /var/www
 
-# copy hasil build vite (manifest.json ada di sini)
+# vite build output (manifest.json)
 COPY --from=nodebuild /app/public/build /var/www/public/build
 
-# permission laravel
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache \
  && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
 
