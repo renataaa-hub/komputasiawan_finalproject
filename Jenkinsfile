@@ -2,39 +2,27 @@ pipeline {
     agent any
 
     environment {
-        // ==== ACR ====
         ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
         IMAGE_NAME       = 'penaawan-app'
-        IMAGE_TAG        = 'dev'   // default fallback (tidak boleh kosong)
-
-        // ==== Azure target (GANTI NANTI) ====
-        RG_NAME     = 'Rg-PenaAwan'
-        WEBAPP_NAME = 'Web-PenaAwan'
+        IMAGE_TAG        = 'dev'
     }
 
     stages {
-
         stage('Checkout SCM') {
             steps { checkout scm }
         }
 
-        stage('Set Image Tag (FIX)') {
+        stage('Set Image Tag') {
             steps {
                 script {
                     def commitShort = ''
-
-                    // 1) Coba dari env Jenkins (paling aman)
                     if (env.GIT_COMMIT && env.GIT_COMMIT.trim()) {
                         commitShort = env.GIT_COMMIT.trim().take(7)
                     } else {
-                        // 2) Fallback: tulis output git ke file lalu baca
                         bat '@git rev-parse --short HEAD > .gitshort'
                         commitShort = readFile('.gitshort').trim()
                     }
-
-                    if (!commitShort) {
-                        commitShort = "nogit"
-                    }
+                    if (!commitShort) { commitShort = "nogit" }
 
                     env.IMAGE_TAG = "${env.BUILD_NUMBER}-${commitShort}"
                     echo "Using IMAGE_TAG: ${env.IMAGE_TAG}"
@@ -45,13 +33,12 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 bat """
-                echo Building Docker image...
                 docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
                 """
             }
         }
 
-        stage('Login to Azure Container Registry') {
+        stage('Login to ACR') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'acr-credentials-1',
@@ -67,7 +54,7 @@ pipeline {
             }
         }
 
-        stage('Tag Docker Image') {
+        stage('Tag Image') {
             steps {
                 bat """
                 docker tag %IMAGE_NAME%:%IMAGE_TAG% %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%
@@ -76,7 +63,7 @@ pipeline {
             }
         }
 
-        stage('Push Image to ACR') {
+        stage('Push to ACR') {
             steps {
                 bat """
                 docker push %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%
@@ -85,57 +72,20 @@ pipeline {
             }
         }
 
-        stage('Deploy to Azure WebApp (Set Image + Restart)') {
+        stage('Output for Server Admin') {
             steps {
-                script {
-                    // skip deploy kalau az belum ada
-                    def azExists = bat(script: '@where az >nul 2>nul & echo %ERRORLEVEL%', returnStdout: true).trim()
-                    if (azExists != '0') {
-                        echo "Azure CLI (az) belum terinstall. Deploy DISKIP (Push ACR tetap jalan)."
-                        return
-                    }
-                }
-
-                withCredentials([
-                    string(credentialsId: 'AZURE_CLIENT_ID', variable: 'AZ_CLIENT_ID'),
-                    string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'AZ_CLIENT_SECRET'),
-                    string(credentialsId: 'AZURE_TENANT_ID', variable: 'AZ_TENANT'),
-                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'AZ_SUB')
-                ]) {
-                    bat """
-                    az login --service-principal -u %AZ_CLIENT_ID% -p %AZ_CLIENT_SECRET% --tenant %AZ_TENANT%
-                    az account set --subscription %AZ_SUB%
-
-                    az webapp config container set ^
-                      --name %WEBAPP_NAME% ^
-                      --resource-group %RG_NAME% ^
-                      --docker-custom-image-name %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG% ^
-                      --docker-registry-server-url https://%ACR_LOGIN_SERVER%
-
-                    az webapp restart --name %WEBAPP_NAME% --resource-group %RG_NAME%
-                    """
-                }
+                echo "=== SEND THIS TO SERVER ADMIN ==="
+                echo "ACR: ${env.ACR_LOGIN_SERVER}"
+                echo "Image: ${env.IMAGE_NAME}"
+                echo "Tag latest: latest"
+                echo "Tag versioned: ${env.IMAGE_TAG}"
+                echo "Full: ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
             }
         }
     }
 
     post {
-        success {
-            echo "SUCCESS: %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%"
-        }
-        failure {
-            echo "FAILED: Check Jenkins console output."
-        }
-        always {
-            // POST jangan sampai bikin job gagal
-            script {
-                def azExists = bat(script: '@where az >nul 2>nul & echo %ERRORLEVEL%', returnStdout: true).trim()
-                if (azExists == '0') {
-                    bat '@az logout'
-                } else {
-                    echo "az not installed, skip logout"
-                }
-            }
-        }
+        success { echo "SUCCESS: CI complete, image ready in ACR." }
+        failure { echo "FAILED: check logs." }
     }
 }
