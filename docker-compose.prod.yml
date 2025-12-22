@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  app:
+    image: acrpenaawan2025.azurecr.io/penaawan-app:latest
+    container_name: penaawan_app
+    ports:
+      - "80:80"
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: https://your-domain.com
+
+      DB_CONNECTION: mysql
+      DB_HOST: <azure-mysql-host>
+      DB_PORT: "3306"
+      DB_DATABASE: penaawan
+      DB_USERNAME: penaawanadmin
+      DB_PASSWORD: <password>
+
+    restart: unless-stopped

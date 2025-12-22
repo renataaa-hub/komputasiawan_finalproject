@@ -3,5 +3,3 @@ node_modules
 vendor
 .env
 storage/logs
-Dockerfile*
-docker-compose*
