@@ -5,9 +5,9 @@ pipeline {
         // ==== ACR ====
         ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
         IMAGE_NAME       = 'penaawan-app'
-        IMAGE_TAG        = ''
+        IMAGE_TAG        = 'dev'   // default fallback (tidak boleh kosong)
 
-        // ==== Azure target (GANTI) ====
+        // ==== Azure target (GANTI NANTI) ====
         RG_NAME     = 'Rg-PenaAwan'
         WEBAPP_NAME = 'Web-PenaAwan'
     }
@@ -18,18 +18,21 @@ pipeline {
             steps { checkout scm }
         }
 
-        stage('Set Image Tag (SAFE)') {
+        stage('Set Image Tag (FIX)') {
             steps {
                 script {
-                    // Ambil short commit dari env Jenkins bila ada, fallback ke git command
                     def commitShort = ''
-                    if (env.GIT_COMMIT) {
-                        commitShort = env.GIT_COMMIT.take(7)
+
+                    // 1) Coba dari env Jenkins (paling aman)
+                    if (env.GIT_COMMIT && env.GIT_COMMIT.trim()) {
+                        commitShort = env.GIT_COMMIT.trim().take(7)
                     } else {
-                        commitShort = bat(script: '@git rev-parse --short HEAD', returnStdout: true).trim()
+                        // 2) Fallback: tulis output git ke file lalu baca
+                        bat '@git rev-parse --short HEAD > .gitshort'
+                        commitShort = readFile('.gitshort').trim()
                     }
 
-                    if (!commitShort || commitShort == 'null') {
+                    if (!commitShort) {
                         commitShort = "nogit"
                     }
 
@@ -85,10 +88,10 @@ pipeline {
         stage('Deploy to Azure WebApp (Set Image + Restart)') {
             steps {
                 script {
-                    // Cek apakah az cli tersedia
+                    // skip deploy kalau az belum ada
                     def azExists = bat(script: '@where az >nul 2>nul & echo %ERRORLEVEL%', returnStdout: true).trim()
                     if (azExists != '0') {
-                        echo "Azure CLI (az) belum terinstall di Jenkins agent. Deploy stage DISKIP. (Push ke ACR tetap sukses)"
+                        echo "Azure CLI (az) belum terinstall. Deploy DISKIP (Push ACR tetap jalan)."
                         return
                     }
                 }
@@ -118,14 +121,21 @@ pipeline {
 
     post {
         success {
-            echo "SUCCESS: Image pushed %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%"
+            echo "SUCCESS: %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%"
         }
         failure {
             echo "FAILED: Check Jenkins console output."
         }
         always {
-            // Jangan fail kalau az belum ada
-            bat "@where az >nul 2>nul && az logout || echo az not installed, skip logout"
+            // POST jangan sampai bikin job gagal
+            script {
+                def azExists = bat(script: '@where az >nul 2>nul & echo %ERRORLEVEL%', returnStdout: true).trim()
+                if (azExists == '0') {
+                    bat '@az logout'
+                } else {
+                    echo "az not installed, skip logout"
+                }
+            }
         }
     }
 }
