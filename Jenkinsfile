@@ -5,26 +5,35 @@ pipeline {
         // ==== ACR ====
         ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
         IMAGE_NAME       = 'penaawan-app'
-        IMAGE_TAG        = ''   // diisi otomatis
+        IMAGE_TAG        = ''
 
-        // ==== Azure target (GANTI INI) ====
-        RG_NAME      = 'GANTI_DENGAN_RESOURCE_GROUP_KAMU'
-        WEBAPP_NAME  = 'GANTI_DENGAN_WEBAPP_NAME_KAMU'
+        // ==== Azure target (GANTI) ====
+        RG_NAME     = 'Rg-PenaAwan'
+        WEBAPP_NAME = 'Web-PenaAwan'
     }
 
     stages {
 
         stage('Checkout SCM') {
-            steps {
-                checkout scm
-            }
+            steps { checkout scm }
         }
 
-        stage('Set Image Tag') {
+        stage('Set Image Tag (SAFE)') {
             steps {
                 script {
-                    def commit = bat(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${commit}"
+                    // Ambil short commit dari env Jenkins bila ada, fallback ke git command
+                    def commitShort = ''
+                    if (env.GIT_COMMIT) {
+                        commitShort = env.GIT_COMMIT.take(7)
+                    } else {
+                        commitShort = bat(script: '@git rev-parse --short HEAD', returnStdout: true).trim()
+                    }
+
+                    if (!commitShort || commitShort == 'null') {
+                        commitShort = "nogit"
+                    }
+
+                    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${commitShort}"
                     echo "Using IMAGE_TAG: ${env.IMAGE_TAG}"
                 }
             }
@@ -32,8 +41,8 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker image...'
                 bat """
+                echo Building Docker image...
                 docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
                 """
             }
@@ -75,6 +84,15 @@ pipeline {
 
         stage('Deploy to Azure WebApp (Set Image + Restart)') {
             steps {
+                script {
+                    // Cek apakah az cli tersedia
+                    def azExists = bat(script: '@where az >nul 2>nul & echo %ERRORLEVEL%', returnStdout: true).trim()
+                    if (azExists != '0') {
+                        echo "Azure CLI (az) belum terinstall di Jenkins agent. Deploy stage DISKIP. (Push ke ACR tetap sukses)"
+                        return
+                    }
+                }
+
                 withCredentials([
                     string(credentialsId: 'AZURE_CLIENT_ID', variable: 'AZ_CLIENT_ID'),
                     string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'AZ_CLIENT_SECRET'),
@@ -85,14 +103,12 @@ pipeline {
                     az login --service-principal -u %AZ_CLIENT_ID% -p %AZ_CLIENT_SECRET% --tenant %AZ_TENANT%
                     az account set --subscription %AZ_SUB%
 
-                    REM Set image ke TAG unik (bukan latest)
                     az webapp config container set ^
                       --name %WEBAPP_NAME% ^
                       --resource-group %RG_NAME% ^
                       --docker-custom-image-name %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG% ^
                       --docker-registry-server-url https://%ACR_LOGIN_SERVER%
 
-                    REM Restart supaya WebApp pull image baru
                     az webapp restart --name %WEBAPP_NAME% --resource-group %RG_NAME%
                     """
                 }
@@ -102,14 +118,14 @@ pipeline {
 
     post {
         success {
-            echo "SUCCESS: pushed %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG% and deployed to WebApp %WEBAPP_NAME%"
+            echo "SUCCESS: Image pushed %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%"
         }
         failure {
             echo "FAILED: Check Jenkins console output."
         }
         always {
-            // Opsional: logout biar bersih
-            bat "az logout"
+            // Jangan fail kalau az belum ada
+            bat "@where az >nul 2>nul && az logout || echo az not installed, skip logout"
         }
     }
 }
