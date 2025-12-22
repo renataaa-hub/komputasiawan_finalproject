@@ -7,8 +7,6 @@ FROM node:20-bookworm-slim AS nodebuild
 WORKDIR /app
 
 COPY package*.json ./
-
-# Lebih aman: kalau npm ci gagal karena lockfile ga sync, fallback ke npm install
 RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
 COPY . .
@@ -44,6 +42,9 @@ RUN apt-get update && apt-get install -y \
 ENV APACHE_DOCUMENT_ROOT=/var/www/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
  && sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+
+# ✅ TAMBAHAN (hilangkan warning Apache)
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
 COPY --from=composerbuild /app /var/www
 COPY --from=nodebuild /app/public/build /var/www/public/build
