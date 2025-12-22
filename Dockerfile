@@ -54,3 +54,5 @@ RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache \
 
 EXPOSE 80
 CMD ["apache2-foreground"]
+
+
