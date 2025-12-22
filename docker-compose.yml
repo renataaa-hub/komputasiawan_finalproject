@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   app:
     build: .
@@ -6,5 +7,22 @@ services:
     ports:
       - "80:80"
     env_file:
-      - .env.azure
+      - .env.docker
+    depends_on:
+      - db
     restart: unless-stopped
+
+  db:
+    image: mysql:8
+    container_name: mysql_db
+    environment:
+      MYSQL_DATABASE: penaawan
+      MYSQL_USER: penaawanadmin
+      MYSQL_PASSWORD: yourpass
+      MYSQL_ROOT_PASSWORD: rootpass
+    volumes:
+      - dbdata:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  dbdata:
