@@ -143,4 +143,9 @@ class User extends Authenticatable
     {
         return $this->karyas()->where('status', 'publish')->count();
     }
+
+    public function isAdmin()
+    {
+        return $this->role === 'admin';
+    }
 }

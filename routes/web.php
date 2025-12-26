@@ -1,46 +1,25 @@
 <?php
-
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\KaryaController;
-use App\Http\Controllers\LikeController;
-use App\Http\Controllers\CommentController;
-use App\Models\Notification;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\{
+    ProfileController,
+    KaryaController,
+    LikeController,
+    CommentController,
+    SubscriptionController
+};
+use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Models\Notification;
 
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', fn() => view('welcome'));
 
-Route::get('/dashboard', function () {
+require __DIR__.'/auth.php';
 
-    $trending = [
-        (object)[
-            'title' => 'Karya Pertama',
-            'deskripsi' => 'Sebuah karya menarik tentang petualangan fantasi.',
-            'rating' => 4.8
-        ],
-        (object)[
-            'title' => 'Karya Kedua',
-            'deskripsi' => 'Cerita drama penuh emosi yang menyentuh hati.',
-            'rating' => 4.6
-        ],
-        (object)[
-            'title' => 'Karya Ketiga',
-            'deskripsi' => 'Komedi ringan yang cocok menemani waktu santai.',
-            'rating' => 4.7
-        ],
-    ];
 
-    return view('dashboard', compact('trending'));
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-Route::post('/logout', function () {
-    Auth::logout();
-    return redirect('/');
-})->name('logout');
-
+Route::middleware(['auth', 'verified'])->get('/dashboard', [KaryaController::class, 'dashboard'])
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -48,117 +27,15 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Index Karya (GET)
-Route::get('/karya', [KaryaController::class, 'index'])
-    ->middleware('auth')
-    ->name('karya.index');
-
-// Create Karya (GET form)
-Route::get('/karya/create', [KaryaController::class, 'create'])
-    ->middleware('auth')
-    ->name('karya.create');
-
-// Store Karya (POST)
-Route::post('/karya', [KaryaController::class, 'store'])
-    ->middleware('auth')
-    ->name('karya.store');
-
-Route::middleware('auth')->get('/statistik', [KaryaController::class, 'statistik'])
-    ->name('karya.statistik');
-
-
-Route::get('/monetisasi', [KaryaController::class, 'monetisasi'])
-    ->middleware('auth')
-    ->name('karya.monetisasi');
-
-Route::get('/subscription', function () {
-    return view('subscription'); 
-})->middleware('auth')->name('subscription');
-
-Route::get('/notification', function () {
-    //notifikasi user yang login
-    $notifications = Notification::where('user_id', Auth::id())
-                        ->orderBy('created_at', 'desc')
-                        ->get();
-
-    return view('notification', compact('notifications'));
-})->middleware('auth')->name('notification');
-
-require __DIR__.'/auth.php';
-
-#autosave
-Route::post('/karya/autosave', [KaryaController::class, 'autosave'])
-    ->middleware('auth')
-    ->name('karya.autosave');
-
-// Show Karya (GET)
-Route::get('/karya/{karya}', [KaryaController::class, 'show'])
-    ->middleware('auth')
-    ->name('karya.show');
-
-// Edit Karya (GET form)
-Route::get('/karya/{karya}/edit', [KaryaController::class, 'edit'])
-    ->middleware('auth')
-    ->name('karya.edit');
-
-// Update Karya (PUT/PATCH)
-Route::put('/karya/{karya}', [KaryaController::class, 'update'])
-    ->middleware('auth')
-    ->name('karya.update');
-
-// Delete Karya (DELETE)
-Route::delete('/karya/{karya}', [KaryaController::class, 'destroy'])
-    ->middleware('auth')
-    ->name('karya.destroy');
-// new route (Dashboard)
-Route::get('/dashboard', [KaryaController::class, 'dashboard'])
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
-
-
-// Like & Comment Routes
-Route::middleware('auth')->group(function () {
-    Route::post('/karya/{karya}/like', [LikeController::class, 'toggle'])->name('karya.like');
-    Route::post('/karya/{karya}/comment', [CommentController::class, 'store'])->name('karya.comment');
-    Route::delete('/comment/{comment}', [CommentController::class, 'destroy'])->name('comment.destroy');
+Route::middleware(['auth', 'is_admin'])->group(function () {
+    Route::get('/admin', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+    Route::get('/admin/users', [AdminController::class, 'users'])->name('admin.users');
 });
 
-// Notification mark as read
-Route::middleware('auth')->post('/notification/{notification}/read', function($id) {
-    $notification = Notification::findOrFail($id);
-    if ($notification->user_id === Auth::id()) {
-        $notification->markAsRead();
-    }
-    return back();
-})->name('notification.read');
+Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
+    ->name('logout');
 
-// Mark all notifications as read
-Route::middleware('auth')->post('/notifications/mark-all-read', function() {
-    Notification::where('user_id', Auth::id())
-        ->whereNull('read_at')
-        ->update(['read_at' => now()]);
-    return back()->with('success', 'Semua notifikasi ditandai sudah dibaca');
-})->name('notification.markAllRead');
 
-use App\Http\Controllers\SubscriptionController;
-
-// Subscription Routes
-Route::middleware('auth')->group(function () {
-    Route::get('/subscription', [SubscriptionController::class, 'index'])->name('subscription');
-    Route::post('/subscription/subscribe', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
-    Route::get('/subscription/finish', [SubscriptionController::class, 'finish'])->name('subscription.finish');
-    Route::post('/subscription/{id}/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
-});
-
-// Webhook (NO AUTH!)
-Route::post('/midtrans/webhook', [SubscriptionController::class, 'webhook'])->name('midtrans.webhook');
-
-// Protected Routes with Subscription Check
-Route::middleware(['auth', 'subscription:monetization'])->group(function () {
-    Route::get('/monetisasi', [KaryaController::class, 'monetisasi'])->name('karya.monetisasi');
-});
-
-// Karya routes dengan limit check
 Route::middleware('auth')->group(function () {
     Route::get('/karya', [KaryaController::class, 'index'])->name('karya.index');
     Route::get('/karya/create', [KaryaController::class, 'create'])->name('karya.create');
@@ -167,16 +44,49 @@ Route::middleware('auth')->group(function () {
     Route::get('/karya/{karya}/edit', [KaryaController::class, 'edit'])->name('karya.edit');
     Route::put('/karya/{karya}', [KaryaController::class, 'update'])->name('karya.update');
     Route::delete('/karya/{karya}', [KaryaController::class, 'destroy'])->name('karya.destroy');
-    
+
     Route::get('/statistik', [KaryaController::class, 'statistik'])->name('karya.statistik');
 });
 
-// Protected routes - hanya untuk yang punya subscription
+Route::middleware('auth')->group(function () {
+    Route::post('/karya/{karya}/like', [LikeController::class, 'toggle'])->name('karya.like');
+    Route::post('/karya/{karya}/comment', [CommentController::class, 'store'])->name('karya.comment');
+    Route::delete('/comment/{comment}', [CommentController::class, 'destroy'])->name('comment.destroy');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('/subscription', [SubscriptionController::class, 'index'])->name('subscription');
+    Route::post('/subscription/subscribe', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
+    Route::get('/subscription/finish', [SubscriptionController::class, 'finish'])->name('subscription.finish');
+    Route::post('/subscription/{id}/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
+});
+
+// webhook (TANPA auth)
+Route::post('/midtrans/webhook', [SubscriptionController::class, 'webhook'])
+    ->name('midtrans.webhook');
+
 Route::middleware(['auth', 'subscription:monetization'])->group(function () {
     Route::get('/monetisasi', [KaryaController::class, 'monetisasi'])->name('karya.monetisasi');
 });
 
-// Jika nanti ada kolaborasi
-Route::middleware(['auth', 'subscription:collaboration'])->group(function () {
-    // Route::get('/collaboration', ...)->name('collaboration.index');
+Route::middleware('auth')->group(function () {
+    Route::get('/notification', function () {
+        $notifications = Notification::where('user_id', Auth::id())->latest()->get();
+        return view('notification', compact('notifications'));
+    })->name('notification');
+
+    Route::post('/notification/{notification}/read', function ($id) {
+        $notification = Notification::findOrFail($id);
+        if ($notification->user_id === Auth::id()) {
+            $notification->markAsRead();
+        }
+        return back();
+    })->name('notification.read');
+
+    Route::post('/notifications/mark-all-read', function () {
+        Notification::where('user_id', Auth::id())
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+        return back()->with('success', 'Semua notifikasi ditandai sudah dibaca');
+    })->name('notification.markAllRead');
 });
