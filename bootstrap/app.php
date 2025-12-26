@@ -14,11 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'subscription' => \App\Http\Middleware\CheckSubscriptionLimit::class,
+            'is_admin'     => \App\Http\Middleware\IsAdmin::class,
         ]);
     })
-    ->withMiddleware(function (Middleware $middleware): void {
-        //
-    })
+    
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
