@@ -1,6 +1,7 @@
 <?php
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+USE Illuminate\Support\Facades\DB;
 use App\Http\Controllers\{
     ProfileController,
     KaryaController,
@@ -95,3 +96,19 @@ Route::middleware('auth')->group(function () {
         return back()->with('success', 'Semua notifikasi ditandai sudah dibaca');
     })->name('notification.markAllRead');
 });
+
+Route::middleware('track.visitor')->get('/', function () {
+    return view('welcome'); // atau halaman landing kamu
+});
+
+Route::get('/admin/visitor-chart', function () {
+    return DB::table('visits')
+        ->selectRaw('DATE(created_at) as date, COUNT(*) as total')
+        ->groupBy('date')
+        ->orderBy('date')
+        ->get();
+});
+
+
+Route::middleware(['is_admin'])
+    ->get('/admin/visitor-chart', [AdminController::class, 'visitorChart']);
