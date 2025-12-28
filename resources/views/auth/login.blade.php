@@ -45,6 +45,24 @@
             <x-input-error :messages="$errors->get('password')" class="mt-2" />
         </div>
 
+        <!-- OR LINE -->
+        <div class="flex items-center my-6">
+            <div class="flex-grow border-t"></div>
+            <span class="mx-3 text-sm text-gray-400">atau</span>
+            <div class="flex-grow border-t"></div>
+        </div>
+
+        <!-- LOGIN DENGAN GOOGLE -->
+        <div class="mt-6">
+            <a href="{{ route('google.login') }}"
+               class="w-full flex items-center justify-center gap-3 py-2 px-4 border border-gray-300 rounded-xl
+                      hover:bg-gray-100 transition font-medium">
+                <img src="https://developers.google.com/identity/images/g-logo.png"
+                     class="w-5 h-5">
+                Masuk dengan Google
+            </a>
+        </div>
+
         <!-- Remember Me -->
         <div class="flex items-center mt-4">
             <label for="remember_me" class="inline-flex items-center">
