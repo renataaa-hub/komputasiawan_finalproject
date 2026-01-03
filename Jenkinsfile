@@ -11,7 +11,7 @@ pipeline {
     ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
     IMAGE_NAME       = 'penaawan-app'
     TAG_VERSIONED    = 'init'
-    ACR_CRED_ID      = 'acr-credentials-3'
+    ACR_CRED_ID      = 'acr-credentials-fix'
   }
 
   stages {
@@ -75,7 +75,6 @@ pipeline {
             $imgVersioned = "${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:${env:TAG_VERSIONED}"
             $imgLatest    = "${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:latest"
 
-            # Login aman (password-stdin)
             $env:ACR_PASS | docker login "${env:ACR_LOGIN_SERVER}" -u "$env:ACR_USER" --password-stdin
 
             docker push $imgVersioned
