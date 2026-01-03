@@ -9,7 +9,6 @@ pipeline {
     environment {
         ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
         IMAGE_NAME       = 'penaawan-app'
-        // JANGAN declare IMAGE_TAG di sini biar nggak nge-lock jadi kosong
     }
 
     stages {
@@ -29,12 +28,11 @@ pipeline {
         stage('Set Image Tag') {
             steps {
                 script {
-                    def commitShort = bat(
-                        script: 'git rev-parse --short HEAD',
-                        returnStdout: true
-                    ).trim()
+                    def raw = bat(script: '@git rev-parse --short HEAD', returnStdout: true).trim()
+                    def commitShort = raw.readLines().last().trim()
 
                     if (!commitShort) { commitShort = "nogit" }
+                    commitShort = commitShort.replaceAll(/[^0-9A-Za-z_.-]/, '')
 
                     env.IMAGE_TAG = "${env.BUILD_NUMBER}-${commitShort}"
                     echo "Using IMAGE_TAG: ${env.IMAGE_TAG}"
@@ -67,15 +65,20 @@ pipeline {
             }
         }
 
-        stage('Tag & Push') {
+        stage('Tag Image') {
             steps {
                 bat """
                 docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.IMAGE_TAG}
                 docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest
+                """
+            }
+        }
 
+        stage('Push to ACR') {
+            steps {
+                bat """
                 docker push ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.IMAGE_TAG}
                 if %ERRORLEVEL% NEQ 0 exit /b 1
-
                 docker push ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest
                 if %ERRORLEVEL% NEQ 0 exit /b 1
                 """
@@ -85,14 +88,17 @@ pipeline {
         stage('Output for Server Admin') {
             steps {
                 echo "=== SEND THIS TO SERVER ADMIN ==="
+                echo "ACR: ${env.ACR_LOGIN_SERVER}"
+                echo "Image: ${env.IMAGE_NAME}"
+                echo "Tag latest: latest"
+                echo "Tag versioned: ${env.IMAGE_TAG}"
                 echo "Full: ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-                echo "Latest: ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest"
             }
         }
     }
 
     post {
-        success { echo "SUCCESS ✅: image pushed to ACR." }
-        failure { echo "FAILED ❌: check logs." }
+        success { echo "SUCCESS: CI complete, image ready in ACR." }
+        failure { echo "FAILED: check logs." }
     }
 }
