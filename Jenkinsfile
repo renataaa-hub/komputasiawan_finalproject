@@ -16,7 +16,7 @@ pipeline {
     ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
     IMAGE_NAME       = 'penaawan-app'
 
-    // Ini HARUS sama persis dengan "ID" credential di Jenkins
+    // Jenkins credentials IDs
     GIT_CRED_ID      = 'github-pat'
     ACR_CRED_ID      = 'acr-admin-penaawan'
 
@@ -54,7 +54,6 @@ pipeline {
     stage('Compute Tag') {
       steps {
         script {
-          // setelah checkout, Jenkins biasanya set env.GIT_COMMIT
           def sha = (env.GIT_COMMIT ?: "").trim()
           if (sha.length() >= 7) {
             env.TAG_VERSIONED = sha.substring(0, 7)
@@ -79,9 +78,8 @@ pipeline {
           if ([string]::IsNullOrWhiteSpace($name)) { throw "IMAGE_NAME empty" }
           if ([string]::IsNullOrWhiteSpace($tag))  { throw "TAG_VERSIONED empty" }
 
-          # PENTING: pakai ${name} biar ':' tidak bikin parser error
-          $img1 = "$acr/${name}:$tag"
-          $img2 = "$acr/${name}:latest"
+          $img1 = "$acr/$name:$tag"
+          $img2 = "$acr/$name:latest"
 
           Write-Host "Building:"
           Write-Host " - $img1"
@@ -96,50 +94,48 @@ pipeline {
     }
 
     stage('Login to ACR & Push') {
-  steps {
-    withCredentials([usernamePassword(
-      credentialsId: env.ACR_CRED_ID,
-      usernameVariable: 'ACR_USER',
-      passwordVariable: 'ACR_PASS'
-    )]) {
-      powershell '''
-        $ErrorActionPreference = "Stop"
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: env.ACR_CRED_ID,
+          usernameVariable: 'ACR_USER',
+          passwordVariable: 'ACR_PASS'
+        )]) {
+          powershell '''
+            $ErrorActionPreference = "Stop"
 
-        $acr  = "${env:ACR_LOGIN_SERVER}".Trim()
-        $name = "${env:IMAGE_NAME}".Trim()
-        $tag  = "${env:TAG_VERSIONED}".Trim()
+            $acr  = "${env:ACR_LOGIN_SERVER}".Trim()
+            $name = "${env:IMAGE_NAME}".Trim()
+            $tag  = "${env:TAG_VERSIONED}".Trim()
 
-        $user = "${env:ACR_USER}".Trim()
-        $pass = "${env:ACR_PASS}".Trim()
+            $user = "${env:ACR_USER}".Trim()
+            $pass = "${env:ACR_PASS}".Trim()
 
-        $img1 = "$acr/$name:$tag"
-        $img2 = "$acr/$name:latest"
+            $img1 = "$acr/$name:$tag"
+            $img2 = "$acr/$name:latest"
 
-        Write-Host "ACR=$acr"
-        Write-Host "USER=$user"
-        Write-Host "PASS_LEN=$($pass.Length)"
-        Write-Host "PROFILE=$env:USERPROFILE"
+            Write-Host "ACR=$acr"
+            Write-Host "USER=$user"
+            Write-Host "PASS_LEN=$($pass.Length)"
+            Write-Host "PROFILE=$env:USERPROFILE"
 
-        docker logout $acr | Out-Null
+            docker logout $acr | Out-Null
 
-        # kirim password tanpa masalah newline PowerShell
-        $tmp = Join-Path $env:TEMP "acr_pass.txt"
-        Set-Content -Path $tmp -Value $pass -NoNewline
-        Get-Content $tmp -Raw | docker login $acr --username $user --password-stdin
-        Remove-Item $tmp -Force
+            # Anti newline/CRLF issues di Windows Jenkins
+            $tmp = Join-Path $env:TEMP "acr_pass.txt"
+            Set-Content -Path $tmp -Value $pass -NoNewline
+            Get-Content $tmp -Raw | docker login $acr --username $user --password-stdin
+            Remove-Item $tmp -Force
 
-        if ($LASTEXITCODE -ne 0) { throw "ACR login failed" }
+            if ($LASTEXITCODE -ne 0) { throw "ACR login failed" }
 
-        docker push $img1
-        if ($LASTEXITCODE -ne 0) { throw "Push failed: $img1" }
+            docker push $img1
+            if ($LASTEXITCODE -ne 0) { throw "Push failed: $img1" }
 
-        docker push $img2
-        if ($LASTEXITCODE -ne 0) { throw "Push failed: $img2" }
-      '''
-    }
-  }
-}
-
+            docker push $img2
+            if ($LASTEXITCODE -ne 0) { throw "Push failed: $img2" }
+          '''
+        }
+      }
     }
 
     stage('Output for Server Admin') {
