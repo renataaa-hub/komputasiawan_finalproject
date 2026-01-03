@@ -10,18 +10,15 @@ pipeline {
   }
 
   environment {
-    // ==== UBAH SESUAI PUNYA KAMU ====
     REPO_URL         = 'https://github.com/renataaa-hub/komputasiawan_finalproject.git'
     BRANCH           = 'main'
 
     ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
     IMAGE_NAME       = 'penaawan-app'
 
-    // Credential IDs di Jenkins (Manage Credentials)
     GIT_CRED_ID      = 'github-pat'
     ACR_CRED_ID      = 'acr-admin-penaawan'
 
-    // default, nanti di-update dari commit
     TAG_VERSIONED    = 'init'
   }
 
@@ -47,8 +44,6 @@ pipeline {
           Write-Host "ACR_LOGIN_SERVER=$env:ACR_LOGIN_SERVER"
           Write-Host "IMAGE_NAME=$env:IMAGE_NAME"
           Write-Host "TAG_VERSIONED=$env:TAG_VERSIONED"
-          Write-Host "GIT_CRED_ID=$env:GIT_CRED_ID"
-          Write-Host "ACR_CRED_ID=$env:ACR_CRED_ID"
           git --version
           docker version
         '''
@@ -59,6 +54,7 @@ pipeline {
       steps {
         script {
           def shortSha = powershell(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+          if (!shortSha) { shortSha = "init" }
           env.TAG_VERSIONED = shortSha
           echo "TAG_VERSIONED updated => ${env.TAG_VERSIONED}"
         }
@@ -70,8 +66,16 @@ pipeline {
         powershell '''
           $ErrorActionPreference = "Stop"
 
-          $img1 = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED"
-          $img2 = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
+          $acr  = "${env:ACR_LOGIN_SERVER}".Trim()
+          $name = "${env:IMAGE_NAME}".Trim()
+          $tag  = "${env:TAG_VERSIONED}".Trim()
+
+          if ([string]::IsNullOrWhiteSpace($acr))  { throw "ACR_LOGIN_SERVER empty" }
+          if ([string]::IsNullOrWhiteSpace($name)) { throw "IMAGE_NAME empty" }
+          if ([string]::IsNullOrWhiteSpace($tag))  { throw "TAG_VERSIONED empty" }
+
+          $img1 = "$acr/$name:$tag"
+          $img2 = "$acr/$name:latest"
 
           Write-Host "Building:"
           Write-Host " - $img1"
@@ -80,7 +84,7 @@ pipeline {
           docker build --pull -t $img1 -t $img2 .
           if ($LASTEXITCODE -ne 0) { throw "Docker build failed" }
 
-          docker images | Select-String $env:IMAGE_NAME
+          docker images | Select-String $name
         '''
       }
     }
@@ -95,20 +99,16 @@ pipeline {
           powershell '''
             $ErrorActionPreference = "Stop"
 
-            $img1 = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED"
-            $img2 = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
+            $acr  = "${env:ACR_LOGIN_SERVER}".Trim()
+            $name = "${env:IMAGE_NAME}".Trim()
+            $tag  = "${env:TAG_VERSIONED}".Trim()
 
-            Write-Host "Login ACR: $env:ACR_LOGIN_SERVER as $env:ACR_USER"
+            $img1 = "$acr/$name:$tag"
+            $img2 = "$acr/$name:latest"
 
-            docker logout $env:ACR_LOGIN_SERVER | Out-Null
-
-            # password-stdin supaya aman (nggak kena masalah newline)
-            $env:ACR_PASS | docker login $env:ACR_LOGIN_SERVER --username $env:ACR_USER --password-stdin
+            docker logout $acr | Out-Null
+            $env:ACR_PASS | docker login $acr --username $env:ACR_USER --password-stdin
             if ($LASTEXITCODE -ne 0) { throw "ACR login failed" }
-
-            Write-Host "Pushing:"
-            Write-Host " - $img1"
-            Write-Host " - $img2"
 
             docker push $img1
             if ($LASTEXITCODE -ne 0) { throw "Push failed: $img1" }
@@ -122,7 +122,6 @@ pipeline {
 
     stage('Output for Server Admin') {
       steps {
-        echo "DONE ✅"
         echo "Image pushed:"
         echo "${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.TAG_VERSIONED}"
         echo "${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest"
@@ -135,11 +134,8 @@ pipeline {
       echo "Pipeline finished. Cleaning workspace..."
       cleanWs()
     }
-    success {
-      echo "SUCCESS ✅"
-    }
     failure {
-      echo "FAILED ❌: Check logs above (build/push stage)."
+      echo "FAILED ❌: Check logs above."
     }
   }
 }
