@@ -52,7 +52,7 @@ pipeline {
         stage('Login to ACR') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'acr-credentials-1',
+                    credentialsId: 'acrPenaAwan2025',
                     usernameVariable: 'ACR_USER',
                     passwordVariable: 'ACR_PASS'
                 )]) {
