@@ -3,47 +3,42 @@ pipeline {
 
   options {
     timestamps()
-    skipDefaultCheckout(true)
     disableConcurrentBuilds()
+    skipDefaultCheckout(true)
   }
 
   environment {
+    // ACR
     ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
     IMAGE_NAME       = 'penaawan-app'
-    TAG_VERSIONED    = 'init'
-    ACR_CRED_ID      = 'acr-admin-penaawan'   // <-- pastikan ini bener
+    ACR_CRED_ID      = 'acr-admin-penaawan'   // <-- credential ACR (username+password ACR)
+
+    // GitHub
+    GIT_URL          = 'https://github.com/renataaa-hub/komputasiawan_finalproject.git'
+    GIT_BRANCH       = '*/main'
+    GIT_CRED_ID      = 'github-pat'           // <-- credential GitHub (username+PAT)
   }
 
   stages {
 
     stage('Checkout') {
       steps {
-        checkout scm
-      }
-    }
-
-    stage('Sanity Check Vars') {
-      steps {
-        powershell '''
-          Write-Host "ACR_LOGIN_SERVER=${env:ACR_LOGIN_SERVER}"
-          Write-Host "IMAGE_NAME=${env:IMAGE_NAME}"
-          Write-Host "TAG_VERSIONED=${env:TAG_VERSIONED}"
-          Write-Host "ACR_CRED_ID=${env:ACR_CRED_ID}"
-
-          if ([string]::IsNullOrWhiteSpace("${env:ACR_LOGIN_SERVER}")) { throw "ACR_LOGIN_SERVER kosong" }
-          if ([string]::IsNullOrWhiteSpace("${env:IMAGE_NAME}")) { throw "IMAGE_NAME kosong" }
-          if ([string]::IsNullOrWhiteSpace("${env:TAG_VERSIONED}")) { throw "TAG_VERSIONED kosong" }
-          if ([string]::IsNullOrWhiteSpace("${env:ACR_CRED_ID}")) { throw "ACR_CRED_ID kosong" }
-        '''
+        checkout([$class: 'GitSCM',
+          branches: [[name: "${env.GIT_BRANCH}"]],
+          userRemoteConfigs: [[
+            url: "${env.GIT_URL}",
+            credentialsId: "${env.GIT_CRED_ID}"
+          ]]
+        ])
       }
     }
 
     stage('Compute Tag') {
       steps {
         script {
-          def gitShort = powershell(returnStdout: true, script: 'git rev-parse --short=7 HEAD').trim()
-          env.TAG_VERSIONED = gitShort
-          echo "TAG_VERSIONED updated => ${env.TAG_VERSIONED}"
+          def shortHash = powershell(returnStdout: true, script: 'git rev-parse --short=7 HEAD').trim()
+          env.TAG_VERSIONED = shortHash
+          echo "TAG_VERSIONED set => ${env.TAG_VERSIONED}"
         }
       }
     }
@@ -68,7 +63,7 @@ pipeline {
       }
     }
 
-    stage('Login to ACR & Push') {
+    stage('Login to ACR & Push (DEBUG)') {
       steps {
         withCredentials([usernamePassword(
           credentialsId: "${env.ACR_CRED_ID}",
@@ -78,27 +73,38 @@ pipeline {
           powershell '''
             $ErrorActionPreference = "Stop"
 
+            $reg = "${env:ACR_LOGIN_SERVER}"
             $imgVersioned = "${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:${env:TAG_VERSIONED}"
             $imgLatest    = "${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:latest"
 
-            Write-Host "Logging into ACR: ${env:ACR_LOGIN_SERVER} as $env:ACR_USER"
+            Write-Host "=== DEBUG ACR ==="
+            Write-Host "Registry : $reg"
+            Write-Host "User     : $env:ACR_USER"
+            Write-Host "PassLen  : $($env:ACR_PASS.Length)"   # aman, tidak bocorin isi
 
-            # bersihin session login lama (kadang bikin error aneh)
-            docker logout "${env:ACR_LOGIN_SERVER}" | Out-Null
+            # bersihin login session lama
+            docker logout $reg 2>$null | Out-Null
 
-            # FIX Windows: trim password biar gak ada newline/spasi
-            $pass = "$env:ACR_PASS".Trim()
+            # FIX Windows: pastikan stdin tidak ada newline aneh
+            $pass = $env:ACR_PASS
+            $pass = $pass -replace "`r",""
+            $pass = $pass -replace "`n",""
+            $pass = $pass.Trim()
 
-            $pass | docker login "${env:ACR_LOGIN_SERVER}" -u "$env:ACR_USER" --password-stdin
-            if ($LASTEXITCODE -ne 0) { throw "ACR login failed" }
+            Write-Host "Logging in..."
+            $pass | docker login $reg -u "$env:ACR_USER" --password-stdin
+            if ($LASTEXITCODE -ne 0) { throw "ACR login failed (check credential content + ACR access)" }
 
+            Write-Host "Pushing versioned: $imgVersioned"
             docker push $imgVersioned
             if ($LASTEXITCODE -ne 0) { throw "Push versioned failed" }
 
+            Write-Host "Pushing latest: $imgLatest"
             docker push $imgLatest
             if ($LASTEXITCODE -ne 0) { throw "Push latest failed" }
 
-            docker logout "${env:ACR_LOGIN_SERVER}" | Out-Null
+            docker logout $reg | Out-Null
+            Write-Host "DONE push."
           '''
         }
       }
@@ -106,28 +112,18 @@ pipeline {
 
     stage('Output for Server Admin') {
       steps {
-        powershell '''
-          Write-Host "=== SEND THIS TO SERVER ADMIN ==="
-          Write-Host "ACR   : ${env:ACR_LOGIN_SERVER}"
-          Write-Host "Image : ${env:IMAGE_NAME}"
-          Write-Host "Tag versioned: ${env:TAG_VERSIONED}"
-          Write-Host "Full  : ${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:${env:TAG_VERSIONED}"
-          Write-Host "Tag latest   : latest"
-          Write-Host "Full  : ${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:latest"
-        '''
+        echo "ACR   : ${env.ACR_LOGIN_SERVER}"
+        echo "Image : ${env.IMAGE_NAME}"
+        echo "Tag   : ${env.TAG_VERSIONED}"
+        echo "Full  : ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.TAG_VERSIONED}"
+        echo "Latest: ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest"
       }
     }
   }
 
   post {
-    always {
-      cleanWs()
-    }
-    success {
-      echo 'SUCCESS: CI complete, image pushed to ACR.'
-    }
-    failure {
-      echo 'FAILED: CI failed. Check logs above.'
-    }
+    always { cleanWs() }
+    success { echo 'SUCCESS: build+push complete.' }
+    failure { echo 'FAILED: check logs above.' }
   }
 }
