@@ -29,6 +29,21 @@ class Karya extends Model
         'pendapatan',
         'views',
     ];
+    public function collaborators()
+{
+    return $this->belongsToMany(\App\Models\User::class, 'karya_collaborators')
+        ->withPivot('role')
+        ->withTimestamps();
+}
+
+public function isCollaborator($user): bool
+{
+    if (!$user) return false;
+
+    return $this->collaborators()
+        ->where('users.id', $user->id)
+        ->exists();
+}
 
     public function user()
     {
