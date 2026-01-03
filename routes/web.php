@@ -77,6 +77,9 @@ Route::post('/midtrans/webhook', [SubscriptionController::class, 'webhook'])
 
 Route::middleware(['auth', 'subscription:monetization'])->group(function () {
     Route::get('/monetisasi', [KaryaController::class, 'monetisasi'])->name('karya.monetisasi');
+    Route::post('/karya/{karya}/monetisasi', [KaryaController::class, 'updateMonetisasi'])
+    ->name('karya.monetisasi.update');
+
 });
 
 Route::middleware('auth')->group(function () {
@@ -117,3 +120,4 @@ Route::middleware('auth')->group(function () {
     Route::post('/collaboration/{requestModel}/reject', [CollaborationController::class, 'reject'])
         ->name('collaboration.reject');
 });
+

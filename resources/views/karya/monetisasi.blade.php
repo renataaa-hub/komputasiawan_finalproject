@@ -41,30 +41,41 @@
         <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Judul Karya</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Monetisasi</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pendapatan</th>
-                    </tr>
-                </thead>
+<tr>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Judul Karya</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Monetisasi</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pendapatan</th>
+    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+</tr>
+</thead>
+
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($karya as $item)
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $item->judul }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                @if($item->status_monetisasi == 'active')
-                                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Aktif</span>
-                                @else
-                                    <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Nonaktif</span>
-                                @endif
-                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                Rp {{ number_format($item->harga,0,',','.') }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                                Rp {{ number_format($item->pendapatan,0,',','.') }}
-                            </td>
+    <form action="{{ route('karya.monetisasi.update', $item->id) }}" method="POST" class="flex gap-2 items-center">
+        @csrf
+
+        <select name="status_monetisasi" class="border rounded px-2 py-1 text-xs">
+            <option value="inactive" @selected($item->status_monetisasi !== 'active')>Nonaktif</option>
+            <option value="active" @selected($item->status_monetisasi === 'active')>Aktif</option>
+        </select>
+
+        <input type="number" name="harga" min="0" value="{{ $item->harga ?? 0 }}"
+            class="w-28 border rounded px-2 py-1 text-xs"
+            placeholder="Harga">
+
+        <button type="submit" class="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">
+            Simpan
+        </button>
+    </form>
+
+    @if($item->status !== 'publish')
+        <p class="text-xs text-red-500 mt-1">* Harus publish dulu</p>
+    @endif
+</td>
+
                         </tr>
                     @empty
                         <tr>
