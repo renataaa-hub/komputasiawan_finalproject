@@ -16,7 +16,7 @@ pipeline {
     ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
     IMAGE_NAME       = 'penaawan-app'
 
-    // Jenkins credentials IDs
+
     GIT_CRED_ID      = 'github-pat'
     ACR_CRED_ID      = 'acr-admin-penaawan'
 
@@ -78,8 +78,9 @@ pipeline {
           if ([string]::IsNullOrWhiteSpace($name)) { throw "IMAGE_NAME empty" }
           if ([string]::IsNullOrWhiteSpace($tag))  { throw "TAG_VERSIONED empty" }
 
-          $img1 = "$acr/$name:$tag"
-          $img2 = "$acr/$name:latest"
+          # PENTING: pakai ${name} biar ':' tidak bikin parser error
+          $img1 = "$acr/${name}:$tag"
+          $img2 = "$acr/${name}:latest"
 
           Write-Host "Building:"
           Write-Host " - $img1"
@@ -110,17 +111,16 @@ pipeline {
             $user = "${env:ACR_USER}".Trim()
             $pass = "${env:ACR_PASS}".Trim()
 
-            $img1 = "$acr/$name:$tag"
-            $img2 = "$acr/$name:latest"
+            $img1 = "$acr/${name}:$tag"
+            $img2 = "$acr/${name}:latest"
 
             Write-Host "ACR=$acr"
             Write-Host "USER=$user"
             Write-Host "PASS_LEN=$($pass.Length)"
-            Write-Host "PROFILE=$env:USERPROFILE"
 
             docker logout $acr | Out-Null
 
-            # Anti newline/CRLF issues di Windows Jenkins
+            # Anti newline/CRLF issue (lebih stabil daripada pipe langsung)
             $tmp = Join-Path $env:TEMP "acr_pass.txt"
             Set-Content -Path $tmp -Value $pass -NoNewline
             Get-Content $tmp -Raw | docker login $acr --username $user --password-stdin
