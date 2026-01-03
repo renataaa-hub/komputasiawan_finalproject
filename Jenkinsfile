@@ -8,7 +8,6 @@ pipeline {
   }
 
   environment {
-    // === FIXED CONFIG (tidak perlu diubah) ===
     ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
     IMAGE_NAME       = 'penaawan-app'
     TAG_VERSIONED    = 'init'
@@ -23,14 +22,25 @@ pipeline {
       }
     }
 
+    stage('Sanity Check Vars') {
+      steps {
+        powershell '''
+          Write-Host "ACR_LOGIN_SERVER=${env:ACR_LOGIN_SERVER}"
+          Write-Host "IMAGE_NAME=${env:IMAGE_NAME}"
+          Write-Host "TAG_VERSIONED=${env:TAG_VERSIONED}"
+
+          if ([string]::IsNullOrWhiteSpace("${env:ACR_LOGIN_SERVER}")) { throw "ACR_LOGIN_SERVER kosong" }
+          if ([string]::IsNullOrWhiteSpace("${env:IMAGE_NAME}")) { throw "IMAGE_NAME kosong" }
+          if ([string]::IsNullOrWhiteSpace("${env:TAG_VERSIONED}")) { throw "TAG_VERSIONED kosong" }
+        '''
+      }
+    }
+
     stage('Compute Tag') {
       steps {
         powershell '''
           $gitShort = (git rev-parse --short=7 HEAD).Trim()
           Write-Host "GIT_SHORT=$gitShort"
-          # simpan jadi env supaya bisa dipakai stage lain
-          $env:GIT_SHORT = $gitShort
-          Write-Host "Computed TAG_VERSIONED=$env:TAG_VERSIONED, GIT_SHORT=$env:GIT_SHORT"
         '''
       }
     }
@@ -40,8 +50,8 @@ pipeline {
         powershell '''
           docker version
 
-          $imgVersioned = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED"
-          $imgLatest    = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
+          $imgVersioned = "${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:${env:TAG_VERSIONED}"
+          $imgLatest    = "${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:latest"
 
           Write-Host "Building:"
           Write-Host " - $imgVersioned"
@@ -62,16 +72,16 @@ pipeline {
           powershell '''
             $ErrorActionPreference = "Stop"
 
-            # Login ke ACR (pakai password-stdin biar aman)
-            $env:ACR_PASS | docker login $env:ACR_LOGIN_SERVER -u $env:ACR_USER --password-stdin
+            $imgVersioned = "${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:${env:TAG_VERSIONED}"
+            $imgLatest    = "${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:latest"
 
-            $imgVersioned = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED"
-            $imgLatest    = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
+            # Login aman (password-stdin)
+            $env:ACR_PASS | docker login "${env:ACR_LOGIN_SERVER}" -u "$env:ACR_USER" --password-stdin
 
             docker push $imgVersioned
             docker push $imgLatest
 
-            docker logout $env:ACR_LOGIN_SERVER | Out-Null
+            docker logout "${env:ACR_LOGIN_SERVER}" | Out-Null
           '''
         }
       }
@@ -81,12 +91,12 @@ pipeline {
       steps {
         powershell '''
           Write-Host "=== SEND THIS TO SERVER ADMIN ==="
-          Write-Host ("ACR   : {0}" -f $env:ACR_LOGIN_SERVER)
-          Write-Host ("Image : {0}" -f $env:IMAGE_NAME)
-          Write-Host ("Tag versioned: {0}" -f $env:TAG_VERSIONED)
-          Write-Host ("Full  : {0}/{1}:{2}" -f $env:ACR_LOGIN_SERVER, $env:IMAGE_NAME, $env:TAG_VERSIONED)
-          Write-Host ("Tag latest   : latest")
-          Write-Host ("Full  : {0}/{1}:latest" -f $env:ACR_LOGIN_SERVER, $env:IMAGE_NAME)
+          Write-Host "ACR   : ${env:ACR_LOGIN_SERVER}"
+          Write-Host "Image : ${env:IMAGE_NAME}"
+          Write-Host "Tag versioned: ${env:TAG_VERSIONED}"
+          Write-Host "Full  : ${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:${env:TAG_VERSIONED}"
+          Write-Host "Tag latest   : latest"
+          Write-Host "Full  : ${env:ACR_LOGIN_SERVER}/${env:IMAGE_NAME}:latest"
         '''
       }
     }
