@@ -145,6 +145,44 @@ class KaryaController extends Controller
         return view('karya.monetisasi', compact('karya'));
     }
     // Tambahkan method ini di KaryaController
+    public function updateMonetisasi(Request $request, Karya $karya)
+{
+    // hanya owner yang boleh atur
+    if ($karya->user_id !== Auth::id()) {
+        abort(403, 'Unauthorized');
+    }
+
+    // hanya karya publish yang boleh dimonetisasi (biar masuk akal)
+    if ($karya->status !== 'publish') {
+        return back()->with('error', 'Monetisasi hanya bisa untuk karya yang sudah dipublikasikan.');
+    }
+
+    $data = $request->validate([
+        'status_monetisasi' => 'required|in:active,inactive',
+        'harga' => 'nullable|integer|min:0|max:100000000', // max 100jt
+    ]);
+
+    // kalau aktif wajib ada harga > 0
+    if (($data['status_monetisasi'] ?? 'inactive') === 'active') {
+        $harga = (int) ($data['harga'] ?? 0);
+        if ($harga <= 0) {
+            return back()->with('error', 'Harga wajib diisi (> 0) jika monetisasi aktif.');
+        }
+        $karya->harga = $harga;
+    }
+
+    $karya->status_monetisasi = $data['status_monetisasi'];
+
+    // kalau dimatiin, harga boleh tetap ada / atau bisa kamu set 0 (pilih salah satu)
+    if ($karya->status_monetisasi === 'inactive') {
+        // optional:
+        // $karya->harga = 0;
+    }
+
+    $karya->save();
+
+    return back()->with('success', 'Pengaturan monetisasi berhasil diperbarui.');
+}
 
     public function show(Karya $karya)
     {

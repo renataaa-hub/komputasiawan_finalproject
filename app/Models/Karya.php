@@ -28,6 +28,9 @@ class Karya extends Model
         'harga',
         'pendapatan',
         'views',
+        'status_monetisasi',
+        'harga',
+        'pendapatan',
     ];
     public function collaborators()
 {
