@@ -18,7 +18,7 @@ pipeline {
 
 
     GIT_CRED_ID      = 'github-pat'
-    ACR_CRED_ID      = 'acr-admin-penaawan'
+    ACR_CRED_ID      = 'acrPenaAwan2025'
 
     TAG_VERSIONED    = 'init'
   }
