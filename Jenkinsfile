@@ -11,7 +11,7 @@ pipeline {
     ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
     IMAGE_NAME       = 'penaawan-app'
     TAG_VERSIONED    = 'init'
-    ACR_CRED_ID      = 'acr-credentials-fix1'   // <-- pastikan ini bener
+    ACR_CRED_ID      = 'acr-admin-penaawan'   // <-- pastikan ini bener
   }
 
   stages {
