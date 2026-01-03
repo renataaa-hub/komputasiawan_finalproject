@@ -1,17 +1,18 @@
 pipeline {
   agent any
 
-  // OPTIONAL: biar bisa ganti tag manual dari Jenkins UI
-  parameters {
-    string(name: 'VERSION_TAG', defaultValue: 'init', description: 'CHANGE_ME: tag versi image (contoh: init, v1, prod, dll)')
+  options {
+    timestamps()
+    skipDefaultCheckout(true)
+    disableConcurrentBuilds()
   }
 
   environment {
-    // ====== CHANGE_ME: SESUAIKAN ======
-    ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'      // CHANGE_ME: login server ACR kamu
-    IMAGE_NAME       = 'penaawan-app'                    // CHANGE_ME: nama image kamu
-    ACR_CRED_ID      = 'acr-credentials-1'               // CHANGE_ME: ID credential ACR (username/password) di Jenkins
-    // =================================
+    // === FIXED CONFIG (tidak perlu diubah) ===
+    ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
+    IMAGE_NAME       = 'penaawan-app'
+    TAG_VERSIONED    = 'init'
+    ACR_CRED_ID      = 'acr-credentials-3'
   }
 
   stages {
@@ -24,48 +25,53 @@ pipeline {
 
     stage('Compute Tag') {
       steps {
-        script {
-          // Tag versioned: dari parameter
-          env.TAG_VERSIONED = params.VERSION_TAG?.trim()
-          if (!env.TAG_VERSIONED) { env.TAG_VERSIONED = "init" }
-
-          // Tag tambahan: short commit (optional)
-          def commit = powershell(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-          env.GIT_SHORT = commit
-
-          echo "Computed TAG_VERSIONED=${env.TAG_VERSIONED}, GIT_SHORT=${env.GIT_SHORT}"
-        }
+        powershell '''
+          $gitShort = (git rev-parse --short=7 HEAD).Trim()
+          Write-Host "GIT_SHORT=$gitShort"
+          # simpan jadi env supaya bisa dipakai stage lain
+          $env:GIT_SHORT = $gitShort
+          Write-Host "Computed TAG_VERSIONED=$env:TAG_VERSIONED, GIT_SHORT=$env:GIT_SHORT"
+        '''
       }
     }
 
     stage('Build Docker Image') {
       steps {
         powershell '''
-          $ErrorActionPreference = "Stop"
-
           docker version
-          docker build -t "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED" .
-          docker tag "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED" "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
 
-          Write-Host "Build done."
+          $imgVersioned = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED"
+          $imgLatest    = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
+
+          Write-Host "Building:"
+          Write-Host " - $imgVersioned"
+          Write-Host " - $imgLatest"
+
+          docker build -t $imgVersioned -t $imgLatest .
         '''
       }
     }
 
     stage('Login to ACR & Push') {
       steps {
-        withCredentials([usernamePassword(credentialsId: env.ACR_CRED_ID, usernameVariable: 'ACR_USER', passwordVariable: 'ACR_PASS')]) {
+        withCredentials([usernamePassword(
+          credentialsId: "${env.ACR_CRED_ID}",
+          usernameVariable: 'ACR_USER',
+          passwordVariable: 'ACR_PASS'
+        )]) {
           powershell '''
             $ErrorActionPreference = "Stop"
 
-            # Login ACR
-            docker login $env:ACR_LOGIN_SERVER -u $env:ACR_USER -p $env:ACR_PASS
+            # Login ke ACR (pakai password-stdin biar aman)
+            $env:ACR_PASS | docker login $env:ACR_LOGIN_SERVER -u $env:ACR_USER --password-stdin
 
-            # Push
-            docker push "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED"
-            docker push "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
+            $imgVersioned = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED"
+            $imgLatest    = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
 
-            Write-Host "Push done."
+            docker push $imgVersioned
+            docker push $imgLatest
+
+            docker logout $env:ACR_LOGIN_SERVER | Out-Null
           '''
         }
       }
@@ -73,13 +79,15 @@ pipeline {
 
     stage('Output for Server Admin') {
       steps {
-        echo "=== SEND THIS TO SERVER ADMIN ==="
-        echo "ACR   : ${env.ACR_LOGIN_SERVER}"
-        echo "Image : ${env.IMAGE_NAME}"
-        echo "Tag versioned: ${env.TAG_VERSIONED}"
-        echo "Full  : ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.TAG_VERSIONED}"
-        echo "Tag latest   : latest"
-        echo "Full  : ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest"
+        powershell '''
+          Write-Host "=== SEND THIS TO SERVER ADMIN ==="
+          Write-Host ("ACR   : {0}" -f $env:ACR_LOGIN_SERVER)
+          Write-Host ("Image : {0}" -f $env:IMAGE_NAME)
+          Write-Host ("Tag versioned: {0}" -f $env:TAG_VERSIONED)
+          Write-Host ("Full  : {0}/{1}:{2}" -f $env:ACR_LOGIN_SERVER, $env:IMAGE_NAME, $env:TAG_VERSIONED)
+          Write-Host ("Tag latest   : latest")
+          Write-Host ("Full  : {0}/{1}:latest" -f $env:ACR_LOGIN_SERVER, $env:IMAGE_NAME)
+        '''
       }
     }
   }
@@ -89,10 +97,10 @@ pipeline {
       cleanWs()
     }
     success {
-      echo "SUCCESS: CI complete, image ready in ACR."
+      echo 'SUCCESS: CI complete, image ready in ACR.'
     }
     failure {
-      echo "FAILED: CI failed. Check build/push logs above."
+      echo 'FAILED: CI failed. Check build/push logs above.'
     }
   }
 }
