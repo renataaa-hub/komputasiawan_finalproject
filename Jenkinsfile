@@ -1,30 +1,21 @@
 pipeline {
   agent any
-  options { timestamps() }
+
+  // OPTIONAL: biar bisa ganti tag manual dari Jenkins UI
+  parameters {
+    string(name: 'VERSION_TAG', defaultValue: 'init', description: 'CHANGE_ME: tag versi image (contoh: init, v1, prod, dll)')
+  }
 
   environment {
-    // =========================
-    // <<< GANTI INI >>>
-    // =========================
-
-    // ACR login server (tanpa https)
-    // contoh: acrpenaawan2025.azurecr.io
-    ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'   // <<< GANTI INI kalau beda
-
-    // nama image di ACR
-    // contoh: penaawan-app
-    IMAGE_NAME = 'penaawan-app'                       // <<< GANTI INI kalau beda
-
-    // Jenkins Credentials ID (Username with password) untuk login ACR
-    // (Jenkins > Manage Credentials > add "Username with password")
-    ACR_CRED_ID = 'acrPenaAwan2025'                          // <<< GANTI INI sesuai credential ID kamu
-
-    // =========================
-    // END CONFIG
-    // =========================
+    // ====== CHANGE_ME: SESUAIKAN ======
+    ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'      // CHANGE_ME: login server ACR kamu
+    IMAGE_NAME       = 'penaawan-app'                    // CHANGE_ME: nama image kamu
+    ACR_CRED_ID      = 'acr-credentials-1'               // CHANGE_ME: ID credential ACR (username/password) di Jenkins
+    // =================================
   }
 
   stages {
+
     stage('Checkout') {
       steps {
         checkout scm
@@ -34,45 +25,48 @@ pipeline {
     stage('Compute Tag') {
       steps {
         script {
-          // Tag versi = git commit short (8 char)
-          // kalau gagal ambil git info, fallback ke build number
-          def sha = sh(script: "git rev-parse --short=8 HEAD", returnStdout: true).trim()
-          if (!sha) { sha = "b${env.BUILD_NUMBER}" }
+          // Tag versioned: dari parameter
+          env.TAG_VERSIONED = params.VERSION_TAG?.trim()
+          if (!env.TAG_VERSIONED) { env.TAG_VERSIONED = "init" }
 
-          env.VERSION_TAG = sha
-          env.FULL_IMAGE_VERSIONED = "${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.VERSION_TAG}"
-          env.FULL_IMAGE_LATEST    = "${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest"
+          // Tag tambahan: short commit (optional)
+          def commit = powershell(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+          env.GIT_SHORT = commit
 
-          echo "VERSION_TAG           = ${env.VERSION_TAG}"
-          echo "FULL_IMAGE_VERSIONED  = ${env.FULL_IMAGE_VERSIONED}"
-          echo "FULL_IMAGE_LATEST     = ${env.FULL_IMAGE_LATEST}"
+          echo "Computed TAG_VERSIONED=${env.TAG_VERSIONED}, GIT_SHORT=${env.GIT_SHORT}"
         }
       }
     }
 
     stage('Build Docker Image') {
       steps {
-        sh """
-          set -eux
-          docker build -t ${FULL_IMAGE_VERSIONED} .
-          docker tag ${FULL_IMAGE_VERSIONED} ${FULL_IMAGE_LATEST}
-        """
+        powershell '''
+          $ErrorActionPreference = "Stop"
+
+          docker version
+          docker build -t "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED" .
+          docker tag "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED" "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
+
+          Write-Host "Build done."
+        '''
       }
     }
 
     stage('Login to ACR & Push') {
       steps {
-        withCredentials([usernamePassword(
-          credentialsId: env.ACR_CRED_ID,
-          usernameVariable: 'ACR_USER',
-          passwordVariable: 'ACR_PASS'
-        )]) {
-          sh """
-            set -eux
-            echo "${ACR_PASS}" | docker login ${ACR_LOGIN_SERVER} -u "${ACR_USER}" --password-stdin
-            docker push ${FULL_IMAGE_VERSIONED}
-            docker push ${FULL_IMAGE_LATEST}
-          """
+        withCredentials([usernamePassword(credentialsId: env.ACR_CRED_ID, usernameVariable: 'ACR_USER', passwordVariable: 'ACR_PASS')]) {
+          powershell '''
+            $ErrorActionPreference = "Stop"
+
+            # Login ACR
+            docker login $env:ACR_LOGIN_SERVER -u $env:ACR_USER -p $env:ACR_PASS
+
+            # Push
+            docker push "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED"
+            docker push "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
+
+            Write-Host "Push done."
+          '''
         }
       }
     }
@@ -80,23 +74,18 @@ pipeline {
     stage('Output for Server Admin') {
       steps {
         echo "=== SEND THIS TO SERVER ADMIN ==="
-        echo "ACR   : ${ACR_LOGIN_SERVER}"
-        echo "Image : ${IMAGE_NAME}"
-        echo "Tag versioned: ${VERSION_TAG}"
-        echo "Full  : ${FULL_IMAGE_VERSIONED}"
+        echo "ACR   : ${env.ACR_LOGIN_SERVER}"
+        echo "Image : ${env.IMAGE_NAME}"
+        echo "Tag versioned: ${env.TAG_VERSIONED}"
+        echo "Full  : ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.TAG_VERSIONED}"
         echo "Tag latest   : latest"
-        echo "Full  : ${FULL_IMAGE_LATEST}"
+        echo "Full  : ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest"
       }
     }
   }
 
   post {
     always {
-      sh """
-        set +e
-        docker logout ${ACR_LOGIN_SERVER}
-        true
-      """
       cleanWs()
     }
     success {
