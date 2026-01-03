@@ -4,7 +4,7 @@ pipeline {
     environment {
         ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
         IMAGE_NAME       = 'penaawan-app'
-        IMAGE_TAG        = 'dev'
+        IMAGE_TAG        = ''
     }
 
     stages {
@@ -26,15 +26,16 @@ pipeline {
 
                     env.IMAGE_TAG = "${env.BUILD_NUMBER}-${commitShort}"
                     echo "Using IMAGE_TAG: ${env.IMAGE_TAG}"
+
+                    currentBuild.displayName = "#${env.BUILD_NUMBER} ${commitShort}"
+                    currentBuild.description = "${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                bat """
-                docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
-                """
+                bat 'docker build -t %IMAGE_NAME%:%IMAGE_TAG% .'
             }
         }
 
@@ -45,30 +46,30 @@ pipeline {
                     usernameVariable: 'ACR_USER',
                     passwordVariable: 'ACR_PASS'
                 )]) {
-                    bat """
+                    bat '''
                     echo %ACR_PASS% | docker login %ACR_LOGIN_SERVER% ^
                       --username %ACR_USER% ^
                       --password-stdin
-                    """
+                    '''
                 }
             }
         }
 
         stage('Tag Image') {
             steps {
-                bat """
+                bat '''
                 docker tag %IMAGE_NAME%:%IMAGE_TAG% %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%
                 docker tag %IMAGE_NAME%:%IMAGE_TAG% %ACR_LOGIN_SERVER%/%IMAGE_NAME%:latest
-                """
+                '''
             }
         }
 
         stage('Push to ACR') {
             steps {
-                bat """
+                bat '''
                 docker push %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%
                 docker push %ACR_LOGIN_SERVER%/%IMAGE_NAME%:latest
-                """
+                '''
             }
         }
 
