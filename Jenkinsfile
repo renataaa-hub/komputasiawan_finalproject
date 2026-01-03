@@ -16,6 +16,7 @@ pipeline {
     ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
     IMAGE_NAME       = 'penaawan-app'
 
+    // Ini HARUS sama persis dengan "ID" credential di Jenkins
     GIT_CRED_ID      = 'github-pat'
     ACR_CRED_ID      = 'acr-admin-penaawan'
 
@@ -53,9 +54,13 @@ pipeline {
     stage('Compute Tag') {
       steps {
         script {
-          def shortSha = powershell(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-          if (!shortSha) { shortSha = "init" }
-          env.TAG_VERSIONED = shortSha
+          // setelah checkout, Jenkins biasanya set env.GIT_COMMIT
+          def sha = (env.GIT_COMMIT ?: "").trim()
+          if (sha.length() >= 7) {
+            env.TAG_VERSIONED = sha.substring(0, 7)
+          } else {
+            env.TAG_VERSIONED = "init"
+          }
           echo "TAG_VERSIONED updated => ${env.TAG_VERSIONED}"
         }
       }
@@ -74,8 +79,9 @@ pipeline {
           if ([string]::IsNullOrWhiteSpace($name)) { throw "IMAGE_NAME empty" }
           if ([string]::IsNullOrWhiteSpace($tag))  { throw "TAG_VERSIONED empty" }
 
-          $img1 = "$acr/$name:$tag"
-          $img2 = "$acr/$name:latest"
+          # PENTING: pakai ${name} biar ':' tidak bikin parser error
+          $img1 = "$acr/${name}:$tag"
+          $img2 = "$acr/${name}:latest"
 
           Write-Host "Building:"
           Write-Host " - $img1"
@@ -103,10 +109,12 @@ pipeline {
             $name = "${env:IMAGE_NAME}".Trim()
             $tag  = "${env:TAG_VERSIONED}".Trim()
 
-            $img1 = "$acr/$name:$tag"
-            $img2 = "$acr/$name:latest"
+            $img1 = "$acr/${name}:$tag"
+            $img2 = "$acr/${name}:latest"
 
             docker logout $acr | Out-Null
+
+            # login pakai password-stdin
             $env:ACR_PASS | docker login $acr --username $env:ACR_USER --password-stdin
             if ($LASTEXITCODE -ne 0) { throw "ACR login failed" }
 
