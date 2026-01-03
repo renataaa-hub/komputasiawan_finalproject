@@ -157,9 +157,13 @@ class KaryaController extends Controller
         }
         
         // Jika karya masih draft, hanya pemilik yang bisa lihat
-        if ($karya->status === 'draft' && $karya->user_id === Auth::id()) {
-            return view('karya.show', compact('karya'));
-        }
+        if ($karya->status === 'draft') {
+    if ($karya->user_id === Auth::id() || $karya->isCollaborator(Auth::user())) {
+        return view('karya.show', compact('karya'));
+    }
+    abort(403, 'Karya ini tidak dapat diakses');
+}
+
         
         // Selain itu, unauthorized
         abort(403, 'Karya ini tidak dapat diakses');
@@ -167,10 +171,11 @@ class KaryaController extends Controller
 
     public function edit(Karya $karya)
     {
-        // Hanya pemilik yang bisa edit
-        if ($karya->user_id !== Auth::id()) {
-            abort(403, 'Anda tidak memiliki akses untuk mengedit karya ini');
-        }
+        // Hanya pemilik dan kolaborator bisa edittt
+        if ($karya->user_id !== Auth::id() && !$karya->isCollaborator(Auth::user())) {
+    abort(403, 'Anda tidak memiliki akses untuk mengedit karya ini');
+}
+
 
         return view('karya.edit', compact('karya'));
     }
@@ -178,9 +183,10 @@ class KaryaController extends Controller
     public function update(Request $request, Karya $karya)
     {
         // Hanya pemilik yang bisa update
-        if ($karya->user_id !== Auth::id()) {
-            abort(403, 'Anda tidak memiliki akses untuk mengupdate karya ini');
-        }
+        if ($karya->user_id !== Auth::id() && !$karya->isCollaborator(Auth::user())) {
+    abort(403, 'Anda tidak memiliki akses untuk mengedit karya ini');
+}
+
 
         $validated = $request->validate([
             'judul' => 'required|string|max:255',

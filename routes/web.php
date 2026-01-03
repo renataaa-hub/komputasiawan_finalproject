@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Models\Notification;
+use App\Http\Controllers\CollaborationController;
 
 
 Route::get('/', fn() => view('welcome'));
@@ -45,6 +46,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/karya', [KaryaController::class, 'index'])->name('karya.index');
     Route::get('/karya/create', [KaryaController::class, 'create'])->name('karya.create');
     Route::post('/karya', [KaryaController::class, 'store'])->name('karya.store');
+
+    // ✅ INI YANG WAJIB (biar route('karya.autosave') gak error)
+    Route::post('/karya/autosave', [KaryaController::class, 'autosave'])->name('karya.autosave');
+
     Route::get('/karya/{karya}', [KaryaController::class, 'show'])->name('karya.show');
     Route::get('/karya/{karya}/edit', [KaryaController::class, 'edit'])->name('karya.edit');
     Route::put('/karya/{karya}', [KaryaController::class, 'update'])->name('karya.update');
@@ -94,4 +99,21 @@ Route::middleware('auth')->group(function () {
             ->update(['read_at' => now()]);
         return back()->with('success', 'Semua notifikasi ditandai sudah dibaca');
     })->name('notification.markAllRead');
+});
+
+Route::middleware('auth')->group(function () {
+    // invite dari owner ke user lain (by email)
+    Route::post('/karya/{karya}/collaboration/invite', [CollaborationController::class, 'invite'])
+        ->name('collaboration.invite');
+
+    // request dari user ke owner
+    Route::post('/karya/{karya}/collaboration/request', [CollaborationController::class, 'requestToOwner'])
+        ->name('collaboration.request');
+
+    // accept / reject
+    Route::post('/collaboration/{requestModel}/accept', [CollaborationController::class, 'accept'])
+        ->name('collaboration.accept');
+
+    Route::post('/collaboration/{requestModel}/reject', [CollaborationController::class, 'reject'])
+        ->name('collaboration.reject');
 });

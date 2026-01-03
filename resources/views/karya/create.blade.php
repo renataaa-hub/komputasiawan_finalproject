@@ -2,6 +2,7 @@
 
     <div class="p-6 ml-64">
         <h1 class="text-3xl font-bold mb-6">Tambah Karya</h1>
+
         <!-- Di bagian atas form, setelah h1 -->
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div class="flex items-start gap-3">
@@ -26,6 +27,7 @@
                 </div>
             </div>
         </div>
+
         <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl">
             <form action="{{ route('karya.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
@@ -52,6 +54,7 @@
                         <option value="artikel">Artikel</option>
                     </select>
                 </div>
+
                 <!-- Deskripsi Singkat -->
                 <div class="mb-4">
                     <label class="block mb-1 font-semibold">Deskripsi Singkat</label>
@@ -59,6 +62,7 @@
                         placeholder="Tulis deskripsi singkat tentang karya ini..."></textarea>
                     <p class="text-sm text-gray-500 mt-1">Deskripsi ini akan muncul di preview karya</p>
                 </div>
+
                 <!-- TAG / Kategori -->
                 <div class="mb-4">
                     <label class="block mb-1 font-semibold">Tag / Kategori</label>
@@ -78,7 +82,8 @@
                 <div class="mb-2">
                     <label class="block mb-1 font-semibold">Isi Karya</label>
                     <textarea id="editor" name="isi" rows="10"
-                        class="w-full p-3 border rounded-lg focus:ring focus:ring-blue-200" placeholder="Mulai tulis karya Anda..."></textarea>
+                        class="w-full p-3 border rounded-lg focus:ring focus:ring-blue-200"
+                        placeholder="Mulai tulis karya Anda..."></textarea>
                 </div>
 
                 <!-- STATUS AUTOSAVE -->
@@ -121,21 +126,28 @@
                 })
                 .then(res => res.json())
                 .then(res => {
-                    document.getElementById('karya_id').value = res.karya_id;
-                    status.innerText = "🟢 Draft tersimpan (" + res.saved_at + ")";
+                    if (res && res.karya_id) {
+                        document.getElementById('karya_id').value = res.karya_id;
+                    }
+                    status.innerText = "🟢 Draft tersimpan (" + (res.saved_at ?? '-') + ")";
                 })
                 .catch(() => {
                     status.innerText = "🔴 Gagal menyimpan draft";
                 });
         }
 
+        function scheduleAutosave() {
+            clearTimeout(autosaveTimer);
+            autosaveTimer = setTimeout(autosave, 3000);
+        }
+
+        // input biasa
         document.querySelectorAll('input, textarea, select').forEach(el => {
-            el.addEventListener('input', () => {
-                clearTimeout(autosaveTimer);
-                autosaveTimer = setTimeout(autosave, 3000);
-            });
+            el.addEventListener('input', scheduleAutosave);
+            el.addEventListener('change', scheduleAutosave);
         });
     </script>
+
     <!-- CKEDITOR -->
     <script src="https://cdn.ckeditor.com/ckeditor5/40.2.0/classic/ckeditor.js"></script>
 
@@ -158,12 +170,14 @@
                 // Sinkronkan ke textarea untuk autosave & submit
                 editor.model.document.on('change:data', () => {
                     document.querySelector('#editor').value = editor.getData();
+
+                    // ✅ ini biar autosave jalan walau ngetik di CKEditor
+                    scheduleAutosave();
                 });
             })
             .catch(error => {
                 console.error(error);
             });
     </script>
-
 
 </x-app-layout>

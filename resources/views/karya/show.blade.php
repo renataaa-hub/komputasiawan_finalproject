@@ -16,17 +16,43 @@
                 </div>
             </div>
 
-            <div class="flex gap-3">
-                @if ($karya->user_id == Auth::id())
-                    <a href="{{ route('karya.edit', $karya->id) }}"
-                        class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">
-                        Edit Karya
-                    </a>
-                @endif
-                <a href="{{ route('dashboard') }}" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-                    Kembali
-                </a>
-            </div>
+            <div class="flex gap-3 items-center">
+
+    {{-- ✅ OWNER: Undang kolaborator via email --}}
+    @if($karya->user_id == Auth::id())
+        <form action="{{ route('collaboration.invite', $karya->id) }}" method="POST" class="flex gap-2 items-center">
+            @csrf
+            <input name="email" type="email" required placeholder="Email kolaborator..."
+                class="px-3 py-2 border rounded-lg text-sm w-56">
+            <button class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm">
+                Undang
+            </button>
+        </form>
+    @endif
+
+    {{-- ✅ BUKAN OWNER: Minta kolaborasi --}}
+    @if($karya->user_id != Auth::id())
+        <form action="{{ route('collaboration.request', $karya->id) }}" method="POST">
+            @csrf
+            <button class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                Minta Kolaborasi
+            </button>
+        </form>
+    @endif
+
+    {{-- tombol existing kamu --}}
+    @if ($karya->user_id == Auth::id())
+        <a href="{{ route('karya.edit', $karya->id) }}"
+            class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">
+            Edit Karya
+        </a>
+    @endif
+
+    <a href="{{ route('dashboard') }}" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+        Kembali
+    </a>
+</div>
+
         </div>
 
         <!-- Content Card -->
