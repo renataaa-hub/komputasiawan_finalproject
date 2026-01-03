@@ -1,121 +1,109 @@
 pipeline {
-    agent any
+  agent any
+  options { timestamps() }
 
-    options {
-        skipDefaultCheckout(true)
-        timestamps()
+  environment {
+    // =========================
+    // <<< GANTI INI >>>
+    // =========================
+
+    // ACR login server (tanpa https)
+    // contoh: acrpenaawan2025.azurecr.io
+    ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'   // <<< GANTI INI kalau beda
+
+    // nama image di ACR
+    // contoh: penaawan-app
+    IMAGE_NAME = 'penaawan-app'                       // <<< GANTI INI kalau beda
+
+    // Jenkins Credentials ID (Username with password) untuk login ACR
+    // (Jenkins > Manage Credentials > add "Username with password")
+    ACR_CRED_ID = 'acrPenaAwan2025'                          // <<< GANTI INI sesuai credential ID kamu
+
+    // =========================
+    // END CONFIG
+    // =========================
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
     }
 
-    environment {
-        ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
-        IMAGE_NAME       = 'penaawan-app'
-        IMAGE_TAG        = 'init'   // placeholder biar nggak null
+    stage('Compute Tag') {
+      steps {
+        script {
+          // Tag versi = git commit short (8 char)
+          // kalau gagal ambil git info, fallback ke build number
+          def sha = sh(script: "git rev-parse --short=8 HEAD", returnStdout: true).trim()
+          if (!sha) { sha = "b${env.BUILD_NUMBER}" }
+
+          env.VERSION_TAG = sha
+          env.FULL_IMAGE_VERSIONED = "${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.VERSION_TAG}"
+          env.FULL_IMAGE_LATEST    = "${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest"
+
+          echo "VERSION_TAG           = ${env.VERSION_TAG}"
+          echo "FULL_IMAGE_VERSIONED  = ${env.FULL_IMAGE_VERSIONED}"
+          echo "FULL_IMAGE_LATEST     = ${env.FULL_IMAGE_LATEST}"
+        }
+      }
     }
 
-    stages {
-        stage('Checkout SCM') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Set Image Tag') {
-            steps {
-                script {
-                    // Ambil short commit (aman di Windows)
-                    def commitShort = ''
-                    if (env.GIT_COMMIT?.trim()) {
-                        commitShort = env.GIT_COMMIT.trim().take(7)
-                    } else {
-                        bat '@git rev-parse --short HEAD > .gitshort'
-                        commitShort = readFile('.gitshort').trim()
-                    }
-                    if (!commitShort) { commitShort = 'nogit' }
-
-                    // Tag unik per build
-                    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${commitShort}"
-
-                    echo "BUILD_NUMBER : ${env.BUILD_NUMBER}"
-                    echo "GIT_COMMIT   : ${env.GIT_COMMIT}"
-                    echo "commitShort  : ${commitShort}"
-                    echo "Using IMAGE_TAG: ${env.IMAGE_TAG}"
-
-                    // Fail-fast kalau kosong
-                    if (!env.IMAGE_TAG?.trim()) {
-                        error("IMAGE_TAG kosong/null. Stop build.")
-                    }
-
-                    // Biar enak tracking di UI Jenkins
-                    currentBuild.displayName = "#${env.BUILD_NUMBER} ${commitShort}"
-                    currentBuild.description = "${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                bat 'echo Building %IMAGE_NAME%:%IMAGE_TAG%'
-                bat 'docker build -t %IMAGE_NAME%:%IMAGE_TAG% .'
-            }
-        }
-
-        stage('Login to ACR') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'acr-credentials-1',
-                    usernameVariable: 'ACR_USER',
-                    passwordVariable: 'ACR_PASS'
-                )]) {
-                    bat '''
-                    echo %ACR_PASS% | docker login %ACR_LOGIN_SERVER% ^
-                      --username %ACR_USER% ^
-                      --password-stdin
-                    '''
-                }
-            }
-        }
-
-        stage('Tag Image') {
-            steps {
-                bat '''
-                docker tag %IMAGE_NAME%:%IMAGE_TAG% %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%
-                docker tag %IMAGE_NAME%:%IMAGE_TAG% %ACR_LOGIN_SERVER%/%IMAGE_NAME%:latest
-                '''
-            }
-        }
-
-        stage('Push to ACR') {
-            steps {
-                bat '''
-                docker push %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%
-                docker push %ACR_LOGIN_SERVER%/%IMAGE_NAME%:latest
-                '''
-            }
-        }
-
-        stage('Output for Server Admin') {
-            steps {
-                echo "=== SEND THIS TO SERVER ADMIN ==="
-                echo "ACR   : ${env.ACR_LOGIN_SERVER}"
-                echo "Image : ${env.IMAGE_NAME}"
-                echo "Tag versioned: ${env.IMAGE_TAG}"
-                echo "Full  : ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-                echo "Tag latest   : latest"
-                echo "Full  : ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest"
-            }
-        }
+    stage('Build Docker Image') {
+      steps {
+        sh """
+          set -eux
+          docker build -t ${FULL_IMAGE_VERSIONED} .
+          docker tag ${FULL_IMAGE_VERSIONED} ${FULL_IMAGE_LATEST}
+        """
+      }
     }
 
-    post {
-        success {
-            echo "SUCCESS: CI complete, image ready in ACR."
+    stage('Login to ACR & Push') {
+      steps {
+        withCredentials([usernamePassword(
+          credentialsId: env.ACR_CRED_ID,
+          usernameVariable: 'ACR_USER',
+          passwordVariable: 'ACR_PASS'
+        )]) {
+          sh """
+            set -eux
+            echo "${ACR_PASS}" | docker login ${ACR_LOGIN_SERVER} -u "${ACR_USER}" --password-stdin
+            docker push ${FULL_IMAGE_VERSIONED}
+            docker push ${FULL_IMAGE_LATEST}
+          """
         }
-        failure {
-            echo "FAILED: check logs."
-        }
-        always {
-            // Opsional: bersihin workspace supaya gak numpuk
-            cleanWs(deleteDirs: true, disableDeferredWipeout: true)
-        }
+      }
     }
+
+    stage('Output for Server Admin') {
+      steps {
+        echo "=== SEND THIS TO SERVER ADMIN ==="
+        echo "ACR   : ${ACR_LOGIN_SERVER}"
+        echo "Image : ${IMAGE_NAME}"
+        echo "Tag versioned: ${VERSION_TAG}"
+        echo "Full  : ${FULL_IMAGE_VERSIONED}"
+        echo "Tag latest   : latest"
+        echo "Full  : ${FULL_IMAGE_LATEST}"
+      }
+    }
+  }
+
+  post {
+    always {
+      sh """
+        set +e
+        docker logout ${ACR_LOGIN_SERVER}
+        true
+      """
+      cleanWs()
+    }
+    success {
+      echo "SUCCESS: CI complete, image ready in ACR."
+    }
+    failure {
+      echo "FAILED: CI failed. Check build/push logs above."
+    }
+  }
 }
