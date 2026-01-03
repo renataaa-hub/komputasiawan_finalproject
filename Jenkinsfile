@@ -96,36 +96,50 @@ pipeline {
     }
 
     stage('Login to ACR & Push') {
-      steps {
-        withCredentials([usernamePassword(
-          credentialsId: env.ACR_CRED_ID,
-          usernameVariable: 'ACR_USER',
-          passwordVariable: 'ACR_PASS'
-        )]) {
-          powershell '''
-            $ErrorActionPreference = "Stop"
+  steps {
+    withCredentials([usernamePassword(
+      credentialsId: env.ACR_CRED_ID,
+      usernameVariable: 'ACR_USER',
+      passwordVariable: 'ACR_PASS'
+    )]) {
+      powershell '''
+        $ErrorActionPreference = "Stop"
 
-            $acr  = "${env:ACR_LOGIN_SERVER}".Trim()
-            $name = "${env:IMAGE_NAME}".Trim()
-            $tag  = "${env:TAG_VERSIONED}".Trim()
+        $acr  = "${env:ACR_LOGIN_SERVER}".Trim()
+        $name = "${env:IMAGE_NAME}".Trim()
+        $tag  = "${env:TAG_VERSIONED}".Trim()
 
-            $img1 = "$acr/${name}:$tag"
-            $img2 = "$acr/${name}:latest"
+        $user = "${env:ACR_USER}".Trim()
+        $pass = "${env:ACR_PASS}".Trim()
 
-            docker logout $acr | Out-Null
+        $img1 = "$acr/$name:$tag"
+        $img2 = "$acr/$name:latest"
 
-            # login pakai password-stdin
-            $env:ACR_PASS | docker login $acr --username $env:ACR_USER --password-stdin
-            if ($LASTEXITCODE -ne 0) { throw "ACR login failed" }
+        Write-Host "ACR=$acr"
+        Write-Host "USER=$user"
+        Write-Host "PASS_LEN=$($pass.Length)"
+        Write-Host "PROFILE=$env:USERPROFILE"
 
-            docker push $img1
-            if ($LASTEXITCODE -ne 0) { throw "Push failed: $img1" }
+        docker logout $acr | Out-Null
 
-            docker push $img2
-            if ($LASTEXITCODE -ne 0) { throw "Push failed: $img2" }
-          '''
-        }
-      }
+        # kirim password tanpa masalah newline PowerShell
+        $tmp = Join-Path $env:TEMP "acr_pass.txt"
+        Set-Content -Path $tmp -Value $pass -NoNewline
+        Get-Content $tmp -Raw | docker login $acr --username $user --password-stdin
+        Remove-Item $tmp -Force
+
+        if ($LASTEXITCODE -ne 0) { throw "ACR login failed" }
+
+        docker push $img1
+        if ($LASTEXITCODE -ne 0) { throw "Push failed: $img1" }
+
+        docker push $img2
+        if ($LASTEXITCODE -ne 0) { throw "Push failed: $img2" }
+      '''
+    }
+  }
+}
+
     }
 
     stage('Output for Server Admin') {
