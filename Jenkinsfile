@@ -3,37 +3,32 @@ pipeline {
 
   options {
     timestamps()
-    disableConcurrentBuilds()
-    ansiColor('xterm')
+    buildDiscarder(logRotator(numToKeepStr: '20'))
   }
 
   environment {
-    // === GIT / SOURCE ===
-    REPO_URL    = 'https://github.com/renataaa-hub/komputasiawan_finalproject.git'
-    BRANCH      = 'main'
-    GIT_CRED_ID = 'github-pat'          // Jenkins Credential untuk GitHub (Username + PAT)
+    // ====== GITHUB ======
+    REPO_URL      = 'https://github.com/renataaa-hub/komputasiawan_finalproject.git'
+    BRANCH_NAME   = 'main'
+    GIT_CRED_ID   = 'github-pat'           // <-- ini HARUS sama dengan ID credential GitHub di Jenkins
 
-    // === ACR / IMAGE ===
+    // ====== ACR ======
     ACR_LOGIN_SERVER = 'acrpenaawan2025.azurecr.io'
     IMAGE_NAME       = 'penaawan-app'
-    ACR_CRED_ID      = 'acr-admin-penaawan' // Jenkins Credential untuk ACR (Username + Password)
+    ACR_CRED_ID      = 'acr-admin-penaawan' // <-- ini HARUS sama dengan ID credential ACR di Jenkins
+
+    // Default tag (nanti ditimpa di Compute Tag)
+    TAG_VERSIONED = 'init'
   }
 
   stages {
 
     stage('Checkout') {
       steps {
-        echo "Checkout ${env.REPO_URL} branch ${env.BRANCH}"
-
-        // Ini yang disebut "Checkout source code" di pipeline
+        echo "Checkout ${env.REPO_URL} branch ${env.BRANCH_NAME}"
         checkout([
           $class: 'GitSCM',
-          branches: [[name: "*/${env.BRANCH}"]],
-          doGenerateSubmoduleConfigurations: false,
-          extensions: [
-            [$class: 'CleanBeforeCheckout'],
-            [$class: 'PruneStaleBranch']
-          ],
+          branches: [[name: "*/${env.BRANCH_NAME}"]],
           userRemoteConfigs: [[
             url: env.REPO_URL,
             credentialsId: env.GIT_CRED_ID
@@ -42,21 +37,16 @@ pipeline {
       }
     }
 
-    stage('Sanity Check') {
+    stage('Sanity Check Vars') {
       steps {
         powershell '''
-          $ErrorActionPreference = "Stop"
-          Write-Host "== Versions =="
+          Write-Host "ACR_LOGIN_SERVER=$env:ACR_LOGIN_SERVER"
+          Write-Host "IMAGE_NAME=$env:IMAGE_NAME"
+          Write-Host "TAG_VERSIONED=$env:TAG_VERSIONED"
+          Write-Host "GIT_CRED_ID=$env:GIT_CRED_ID"
+          Write-Host "ACR_CRED_ID=$env:ACR_CRED_ID"
           git --version
           docker version
-          docker info | Select-String -Pattern "Server Version|OSType|Operating System" -SimpleMatch
-          Write-Host ""
-          Write-Host "== Vars =="
-          Write-Host ("ACR_LOGIN_SERVER=" + $env:ACR_LOGIN_SERVER)
-          Write-Host ("IMAGE_NAME=" + $env:IMAGE_NAME)
-
-          if ([string]::IsNullOrWhiteSpace($env:ACR_LOGIN_SERVER)) { throw "ACR_LOGIN_SERVER kosong" }
-          if ([string]::IsNullOrWhiteSpace($env:IMAGE_NAME))       { throw "IMAGE_NAME kosong" }
         '''
       }
     }
@@ -64,105 +54,93 @@ pipeline {
     stage('Compute Tag') {
       steps {
         script {
-          def shortHash = powershell(returnStdout: true, script: 'git rev-parse --short=7 HEAD').trim()
-          env.TAG_VERSIONED = shortHash ? shortHash : "build-${env.BUILD_NUMBER}"
-          echo "TAG_VERSIONED = ${env.TAG_VERSIONED}"
+          def shortSha = powershell(returnStdout: true, script: 'git rev-parse --short=7 HEAD').trim()
+          env.TAG_VERSIONED = shortSha
+          echo "TAG_VERSIONED updated => ${env.TAG_VERSIONED}"
         }
       }
     }
 
     stage('Build Docker Image') {
       steps {
-        powershell '''
-          $ErrorActionPreference = "Stop"
+        powershell """
+          \$ErrorActionPreference = 'Stop'
+          \$imgVersioned = '${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.TAG_VERSIONED}'
+          \$imgLatest    = '${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest'
 
-          $imgVersioned = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED"
-          $imgLatest    = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
+          Write-Host 'Building:'
+          Write-Host " - \$imgVersioned"
+          Write-Host " - \$imgLatest"
 
-          Write-Host "Building images:"
-          Write-Host " - $imgVersioned"
-          Write-Host " - $imgLatest"
+          docker build -t \$imgVersioned -t \$imgLatest .
+          if (\$LASTEXITCODE -ne 0) { throw 'Docker build failed' }
 
-          docker build --pull -t "$imgVersioned" -t "$imgLatest" .
-          if ($LASTEXITCODE -ne 0) { throw "Docker build failed" }
-
-          docker images "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME" --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}"
-        '''
+          docker images | findstr ${env.IMAGE_NAME} | Out-Host
+        """
       }
     }
 
-    stage('Login to ACR & Push (NO-NEWLINE)') {
+    stage('Login to ACR & Push') {
       steps {
-        withCredentials([usernamePassword(
-          credentialsId: env.ACR_CRED_ID,
-          usernameVariable: 'ACR_USER',
-          passwordVariable: 'ACR_PASS'
-        )]) {
-          powershell '''
-            $ErrorActionPreference = "Stop"
+        withCredentials([usernamePassword(credentialsId: env.ACR_CRED_ID, usernameVariable: 'ACR_USER', passwordVariable: 'ACR_PASS')]) {
+          powershell """
+            \$ErrorActionPreference = 'Stop'
+            \$registry = '${env.ACR_LOGIN_SERVER}'
+            \$imgVersioned = '${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.TAG_VERSIONED}'
+            \$imgLatest    = '${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest'
 
-            $registry = "$env:ACR_LOGIN_SERVER"
-            $user     = "$env:ACR_USER"
+            # (opsional) bersihin login session lama
+            docker logout \$registry | Out-Null
 
-            # FIX Windows: hilangkan newline/spasi biar docker login gak gagal
-            $pass = ("$env:ACR_PASS").Trim()
+            # FIX Windows: buang CR/LF/spasi di akhir password
+            \$pass = "\$env:ACR_PASS".Trim()
 
             Write-Host "=== DEBUG ACR ==="
-            Write-Host ("Registry : " + $registry)
-            Write-Host ("User     : " + $user)
-            Write-Host ("PassLen  : " + $pass.Length)
+            Write-Host "Registry : \$registry"
+            Write-Host "User     : \$env:ACR_USER"
+            Write-Host ("PassLen  : " + \$pass.Length)
 
-            if ([string]::IsNullOrWhiteSpace($registry)) { throw "ACR_LOGIN_SERVER kosong" }
-            if ([string]::IsNullOrWhiteSpace($user))     { throw "ACR username kosong (cek credential Jenkins)" }
-            if ([string]::IsNullOrWhiteSpace($pass))     { throw "ACR password kosong (cek credential Jenkins)" }
+            # docker login via stdin (tanpa newline)
+            \$p = Start-Process -FilePath "docker" -ArgumentList @("login", \$registry, "-u", "\$env:ACR_USER", "--password-stdin") -NoNewWindow -PassThru -RedirectStandardInput "pipe" -RedirectStandardError "pipe" -RedirectStandardOutput "pipe"
+            \$p.StandardInput.Write(\$pass)
+            \$p.StandardInput.Close()
+            \$p.WaitForExit()
 
-            # Bersihin sesi login lama
-            docker logout "$registry" | Out-Null
+            \$out = \$p.StandardOutput.ReadToEnd()
+            \$err = \$p.StandardError.ReadToEnd()
+            if (\$out) { Write-Host \$out }
+            if (\$err) { Write-Host \$err }
 
-            # Login ACR
-            $pass | docker login "$registry" --username "$user" --password-stdin
-            $exit = $LASTEXITCODE
-            if ($exit -ne 0) {
-              throw "ACR login failed (exit=$exit). Paling sering: Admin user ACR OFF / password salah / ACR networking dibatasi / credential bukan untuk registry ini."
-            }
+            if (\$p.ExitCode -ne 0) { throw "ACR login failed (exit=\$($p.ExitCode))" }
 
-            # Push
-            $imgVersioned = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:$env:TAG_VERSIONED"
-            $imgLatest    = "$env:ACR_LOGIN_SERVER/$env:IMAGE_NAME:latest"
+            docker push \$imgVersioned
+            if (\$LASTEXITCODE -ne 0) { throw "Push versioned failed" }
 
-            docker push "$imgVersioned"
-            if ($LASTEXITCODE -ne 0) { throw "Push versioned failed" }
+            docker push \$imgLatest
+            if (\$LASTEXITCODE -ne 0) { throw "Push latest failed" }
 
-            docker push "$imgLatest"
-            if ($LASTEXITCODE -ne 0) { throw "Push latest failed" }
-
-            Write-Host "Push OK:"
-            Write-Host (" - " + $imgVersioned)
-            Write-Host (" - " + $imgLatest)
-
-            docker logout "$registry" | Out-Null
-          '''
+            docker logout \$registry | Out-Null
+          """
         }
       }
     }
 
     stage('Output for Server Admin') {
       steps {
-        echo "DONE ✅ Image pushed to: ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.TAG_VERSIONED} and :latest"
+        echo "Image pushed:"
+        echo " - ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.TAG_VERSIONED}"
+        echo " - ${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:latest"
       }
     }
   }
 
   post {
     always {
-      powershell '''
-        # best-effort cleanup
-        try { docker logout "$env:ACR_LOGIN_SERVER" | Out-Null } catch {}
-      '''
+      echo "Pipeline finished. Cleaning workspace..."
       cleanWs()
     }
     failure {
-      echo "FAILED ❌ Lihat stage yang merah (biasanya ACR login / push)."
+      echo "FAILED: Check logs above (build/push stage)."
     }
   }
 }
