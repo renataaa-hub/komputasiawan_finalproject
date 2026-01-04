@@ -17,7 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'is_admin'     => \App\Http\Middleware\IsAdmin::class,
         ]);
     })
-    
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->web(append: [
+            \App\Http\Middleware\TrackVisitor::class, // <--- Tambahkan ini
+        ]);
+    })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
