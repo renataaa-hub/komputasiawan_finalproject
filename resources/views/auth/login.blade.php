@@ -54,7 +54,7 @@
 
         <!-- LOGIN DENGAN GOOGLE -->
         <div class="mt-6">
-            <a href="{{ route('google.login') }}"
+            <a href="{{ route('auth.google') }}"
                class="w-full flex items-center justify-center gap-3 py-2 px-4 border border-gray-300 rounded-xl
                       hover:bg-gray-100 transition font-medium">
                 <img src="https://developers.google.com/identity/images/g-logo.png"
