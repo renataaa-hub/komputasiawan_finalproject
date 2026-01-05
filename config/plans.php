@@ -20,7 +20,7 @@ return [
     ],
     'pro' => [
         'name' => 'Pro',
-        'price' => 150000,
+        'price' => 1000,
         'duration_days' => 30,
         'features' => [
             'max_drafts' => 15,
@@ -37,7 +37,7 @@ return [
     ],
     'premium' => [
         'name' => 'Premium',
-        'price' => 300000,
+        'price' => 2000,
         'duration_days' => 30,
         'features' => [
             'max_drafts' => null, // unlimited

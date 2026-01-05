@@ -13,6 +13,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Models\Notification;
 use App\Http\Controllers\CollaborationController;
+use App\Http\Controllers\MidtransQrisTestController;
 
 
 Route::get('/', fn() => view('welcome'));
@@ -123,3 +124,4 @@ Route::middleware('auth')->group(function () {
         ->name('collaboration.reject');
 });
 
+Route::get('/dev/qris-url', [MidtransQrisTestController::class, 'create']);
