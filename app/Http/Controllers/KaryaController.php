@@ -141,9 +141,13 @@ class KaryaController extends Controller
 
     public function monetisasi()
     {
-        $karya = Karya::where('user_id', Auth()->id())->get();
+        $karya = \App\Models\Karya::where('user_id', auth()->id())
+            ->latest()
+            ->get();
+
         return view('karya.monetisasi', compact('karya'));
     }
+
     // Tambahkan method ini di KaryaController
     public function updateMonetisasi(Request $request, Karya $karya)
 {
