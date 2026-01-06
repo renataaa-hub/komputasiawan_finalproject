@@ -1,30 +1,30 @@
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Throwable;
 
-return new class extends Migration
+class TrackVisitor
 {
-    /**
-     * Run the migrations.
-     */
-    public function up(): void
+    public function handle(Request $request, Closure $next)
     {
-        Schema::create('visitors', function (Blueprint $table) {
-        $table->id();
-        $table->string('ip_address'); // Simpan IP biar gak kehitung dobel dalam sehari
-        $table->string('user_agent')->nullable(); // Info browser
-        $table->date('visit_date'); // Tanggal kunjungan
-        $table->timestamps();
-        });
-    }
+        try {
+            // kalau tabel belum ada di DB Azure, jangan insert
+            if (Schema::hasTable('visitors')) {
+                \App\Models\Visitor::create([
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'visit_date' => now()->toDateString(),
+                ]);
+            }
+        } catch (Throwable $e) {
+            // jangan bikin web 500
+            // optional: \Log::warning('TrackVisitor error: '.$e->getMessage());
+        }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
-        Schema::dropIfExists('visitors');
+        return $next($request);
     }
-};
+}
