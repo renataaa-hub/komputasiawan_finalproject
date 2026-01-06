@@ -4,21 +4,25 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use App\Models\Visitor;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 class TrackVisitor
 {
     public function handle(Request $request, Closure $next)
     {
-        // LOGIKA BARU: HITUNG SEMUA KLIK (PAGE VIEWS)
-        // Tidak perlu cek IP, langsung simpan data kunjungan baru.
-        
-        Visitor::create([
-            'ip_address' => $request->ip(), // IP tetap disimpan sekadar info, tapi tidak dicek unik/tidaknya
-            'user_agent' => $request->userAgent(),
-            'visit_date' => \Carbon\Carbon::today(),
-        ]);
+        try {
+            // kalau tabel belum ada, jangan insert biar web gak 500
+            if (Schema::hasTable('visitors')) {
+                \App\Models\Visitor::create([
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'visit_date' => now()->toDateString(),
+                ]);
+            }
+        } catch (Throwable $e) {
+            // optional: \Log::warning('TrackVisitor error: '.$e->getMessage());
+        }
 
         return $next($request);
     }

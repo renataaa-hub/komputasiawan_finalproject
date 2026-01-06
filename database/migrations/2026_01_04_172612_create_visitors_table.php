@@ -19,7 +19,7 @@ class TrackVisitor
                     'user_agent' => $request->userAgent(),
                     'visit_date' => now()->toDateString(),
                 ]);
-            }
+            }   
         } catch (Throwable $e) {
             // jangan bikin web 500
             // optional: \Log::warning('TrackVisitor error: '.$e->getMessage());
