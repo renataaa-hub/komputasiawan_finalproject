@@ -6,21 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
+    public function up(): void
     {
         Schema::table('karyas', function (Blueprint $table) {
-            // Tambahkan kolom kategori (string) setelah konten
-            $table->string('kategori')->nullable()->after('konten');
+            if (!Schema::hasColumn('karyas', 'kategori')) {
+                $table->string('kategori')->nullable()->after('konten');
+            }
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::table('karyas', function (Blueprint $table) {
-            $table->dropColumn('kategori');
+            if (Schema::hasColumn('karyas', 'kategori')) {
+                $table->dropColumn('kategori');
+            }
         });
     }
 };

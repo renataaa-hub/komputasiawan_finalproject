@@ -6,22 +6,24 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
+    public function up(): void
     {
-        Schema::table('karyas', function (Blueprint $table) {
-            // Hapus kolom 'isi' karena sudah digantikan oleh 'konten'
-            $table->dropColumn('isi');
-        });
+        // WAJIB: dropColumn butuh doctrine/dbal di beberapa versi Laravel/MySQL.
+        // Tapi untuk drop 1 kolom biasanya aman. Kalau error soal dbal, bilang ya.
+
+        if (Schema::hasColumn('karyas', 'isi')) {
+            Schema::table('karyas', function (Blueprint $table) {
+                $table->dropColumn('isi');
+            });
+        }
     }
 
-    public function down()
+    public function down(): void
     {
-        Schema::table('karyas', function (Blueprint $table) {
-            // (Opsional) Kembalikan kolom jika di-rollback
-            $table->longText('isi')->nullable();
-        });
+        if (!Schema::hasColumn('karyas', 'isi')) {
+            Schema::table('karyas', function (Blueprint $table) {
+                $table->longText('isi')->nullable();
+            });
+        }
     }
 };

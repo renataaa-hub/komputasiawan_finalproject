@@ -6,22 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
+    public function up(): void
     {
         Schema::table('karyas', function (Blueprint $table) {
-            // Kolom untuk status akses (publik/private/premium)
-            // Kita beri default 'publik' agar data lama tidak error
-            $table->string('akses')->default('publik')->after('is_draft');
+            // kalau kolomnya sudah ada, jangan add lagi
+            if (!Schema::hasColumn('karyas', 'akses')) {
+                $table->string('akses')->default('publik')->after('is_draft');
+            }
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::table('karyas', function (Blueprint $table) {
-            $table->dropColumn('akses');
+            if (Schema::hasColumn('karyas', 'akses')) {
+                $table->dropColumn('akses');
+            }
         });
     }
 };

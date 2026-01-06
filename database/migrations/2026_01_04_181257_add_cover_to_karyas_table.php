@@ -6,22 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
+    public function up(): void
     {
         Schema::table('karyas', function (Blueprint $table) {
-            // Kolom untuk menyimpan path gambar cover
-            // Kita set nullable (boleh kosong) jika user tidak upload cover
-            $table->string('cover')->nullable()->after('akses');
+            if (!Schema::hasColumn('karyas', 'cover')) {
+                $table->string('cover')->nullable()->after('akses');
+            }
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::table('karyas', function (Blueprint $table) {
-            $table->dropColumn('cover');
+            if (Schema::hasColumn('karyas', 'cover')) {
+                $table->dropColumn('cover');
+            }
         });
     }
 };

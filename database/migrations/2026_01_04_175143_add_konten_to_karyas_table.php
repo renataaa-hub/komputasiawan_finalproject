@@ -6,22 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
+    public function up(): void
     {
         Schema::table('karyas', function (Blueprint $table) {
-            // Kita pakai longText biar muat cerita yang sangan panjaaang
-            // Taruh setelah kolom 'deskripsi'
-            $table->longText('konten')->nullable()->after('deskripsi');
+            if (!Schema::hasColumn('karyas', 'konten')) {
+                $table->longText('konten')->nullable()->after('deskripsi');
+            }
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::table('karyas', function (Blueprint $table) {
-            $table->dropColumn('konten');
+            if (Schema::hasColumn('karyas', 'konten')) {
+                $table->dropColumn('konten');
+            }
         });
     }
 };

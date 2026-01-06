@@ -6,22 +6,23 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
+    public function up(): void
     {
-        Schema::table('karyas', function (Blueprint $table) {
-            // Tambahkan kolom slug setelah judul
-            // Kita buat nullable dulu untuk menghindari error pada data lama
-            $table->string('slug')->nullable()->after('judul'); 
-        });
+        // Kalau sudah ada, jangan tambah lagi (biar migrate gak berhenti)
+        if (!Schema::hasColumn('karyas', 'slug')) {
+            Schema::table('karyas', function (Blueprint $table) {
+                $table->string('slug')->nullable()->after('judul');
+            });
+        }
     }
 
-    public function down()
+    public function down(): void
     {
-        Schema::table('karyas', function (Blueprint $table) {
-            $table->dropColumn('slug');
-        });
+        // Kalau ada, baru drop (biar aman juga)
+        if (Schema::hasColumn('karyas', 'slug')) {
+            Schema::table('karyas', function (Blueprint $table) {
+                $table->dropColumn('slug');
+            });
+        }
     }
 };

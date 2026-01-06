@@ -6,22 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
+    public function up(): void
     {
         Schema::table('karyas', function (Blueprint $table) {
-            // Kita gunakan tipe boolean (true/false)
-            // Kita set default false (0) agar aman
-            $table->boolean('is_draft')->default(false)->after('status');
+            // kalau kolomnya sudah ada, jangan add lagi
+            if (!Schema::hasColumn('karyas', 'is_draft')) {
+                $table->boolean('is_draft')->default(false)->after('status');
+            }
         });
     }
 
-    public function down()
+    public function down(): void
     {
         Schema::table('karyas', function (Blueprint $table) {
-            $table->dropColumn('is_draft');
+            if (Schema::hasColumn('karyas', 'is_draft')) {
+                $table->dropColumn('is_draft');
+            }
         });
     }
 };
