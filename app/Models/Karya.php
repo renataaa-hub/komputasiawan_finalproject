@@ -39,6 +39,11 @@ class Karya extends Model
         ->withTimestamps();
 }
 
+
+public function totalEarnedAmount(): int
+{
+    return $this->earnedBlocks() * $this->payoutPerBlock();
+}
 public function isCollaborator($user): bool
 {
     if (!$user) return false;

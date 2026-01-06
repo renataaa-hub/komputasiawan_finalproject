@@ -143,7 +143,10 @@ class User extends Authenticatable
     {
         return $this->karyas()->where('status', 'publish')->count();
     }
-
+    public function wallet()
+    {
+        return $this->hasOne(\App\Models\Wallet::class);
+    }
     public function isAdmin()
     {
         return $this->role === 'admin';

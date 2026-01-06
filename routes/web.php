@@ -123,5 +123,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/collaboration/{requestModel}/reject', [CollaborationController::class, 'reject'])
         ->name('collaboration.reject');
 });
+// claim button
+Route::middleware(['auth'])->group(function () {
+    Route::post('/dashboard/monetisasi/{karya}/claim', [\App\Http\Controllers\MonetizationController::class, 'claim'])
+        ->name('monetisasi.claim');
+});
 
 Route::get('/dev/qris-url', [MidtransQrisTestController::class, 'create']);
