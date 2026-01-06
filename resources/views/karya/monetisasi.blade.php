@@ -31,9 +31,14 @@
 
             <div class="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition">
                 <p class="text-sm text-gray-500">Total Views</p>
+                @php
+                    $totalViews = (int) $karya->sum('views');
+                @endphp
+
                 <p class="text-2xl font-bold text-gray-900 mt-1">
-                    12.4K
+                    {{ number_format($totalViews, 0, ',', '.') }}
                 </p>
+
             </div>
         </div>
 
@@ -44,13 +49,21 @@
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Judul
                             Karya</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Views
+                        </th>
+
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Status Monetisasi</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga
                         </th>
+                        <td class="px-6 py-4 text-sm text-gray-700">
+                            {{ number_format((int) ($item->views ?? 0), 0, ',', '.') }}
+                        </td>
+
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Pendapatan</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi
+
                         </th>
                     </tr>
                 </thead>

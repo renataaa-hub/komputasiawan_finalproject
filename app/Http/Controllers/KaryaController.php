@@ -7,6 +7,8 @@ use App\Models\Karya;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
+
 
 class KaryaController extends Controller
 {
@@ -189,27 +191,44 @@ class KaryaController extends Controller
 }
 
     public function show(Karya $karya)
-    {
-        // Jika karya dipublikasikan (publish), semua orang bisa lihat
-        if ($karya->status === 'publish') {
-            // Increment views (opsional)
-            $karya->increment('views');
-            
-            return view('karya.show', compact('karya'));
+{
+    // Jika karya dipublikasikan (publish), semua orang bisa lihat
+    if ($karya->status === 'publish') {
+
+        // ✅ Hitung view + pendapatan hanya kalau yang buka bukan owner
+        if (auth()->check() && auth()->id() !== $karya->user_id) {
+
+            // ✅ anti spam refresh: 1 user dihitung 1x per 1 jam per karya
+            $key = "viewed:" . auth()->id() . ":" . $karya->id;
+
+            if (!Cache::has($key)) {
+                Cache::put($key, true, now()->addHour());
+
+                // tambah views
+                $karya->increment('views');
+
+                // kalau monetisasi aktif, tambah pendapatan per view
+                if ($karya->status_monetisasi === 'active') {
+                    $rpPerView = (int) config('monetisasi.rp_per_view', 50);
+                    $karya->increment('pendapatan', $rpPerView);
+                }
+            }
         }
-        
-        // Jika karya masih draft, hanya pemilik yang bisa lihat
-        if ($karya->status === 'draft') {
-    if ($karya->user_id === Auth::id() || $karya->isCollaborator(Auth::user())) {
+
         return view('karya.show', compact('karya'));
     }
+
+    // Jika karya masih draft, hanya pemilik + kolaborator yang bisa lihat
+    if ($karya->status === 'draft') {
+        if ($karya->user_id === Auth::id() || $karya->isCollaborator(Auth::user())) {
+            return view('karya.show', compact('karya'));
+        }
+        abort(403, 'Karya ini tidak dapat diakses');
+    }
+
     abort(403, 'Karya ini tidak dapat diakses');
 }
 
-        
-        // Selain itu, unauthorized
-        abort(403, 'Karya ini tidak dapat diakses');
-    }
 
     public function edit(Karya $karya)
     {
