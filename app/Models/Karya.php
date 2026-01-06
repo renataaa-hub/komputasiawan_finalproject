@@ -40,10 +40,53 @@ class Karya extends Model
 }
 
 
+// app/Models/Karya.php
+
+public function payoutBlockSize(): int
+{
+    return 1000;
+}
+
+public function payoutPerBlock(): int
+{
+    return 50000;
+}
+
+/**
+ * Berapa blok 1000 views yang sudah tercapai
+ * contoh: 0-999 => 0, 1000-1999 => 1, 2000-2999 => 2, dst.
+ */
+public function earnedBlocks(): int
+{
+    $views = (int) ($this->views_count ?? $this->views ?? 0);
+    return intdiv($views, $this->payoutBlockSize());
+}
+
+/**
+ * Berapa blok yang bisa diklaim (earnedBlocks - claimed_blocks)
+ */
+public function claimableBlocks(): int
+{
+    $claimed = (int) ($this->claimed_blocks ?? 0);
+    return max(0, $this->earnedBlocks() - $claimed);
+}
+
+/**
+ * Total pendapatan dari semua blok yang sudah tercapai
+ */
 public function totalEarnedAmount(): int
 {
     return $this->earnedBlocks() * $this->payoutPerBlock();
 }
+
+/**
+ * Pendapatan yang bisa diklaim sekarang
+ */
+public function claimableAmount(): int
+{
+    return $this->claimableBlocks() * $this->payoutPerBlock();
+}
+
 public function isCollaborator($user): bool
 {
     if (!$user) return false;
@@ -84,4 +127,5 @@ public function isCollaborator($user): bool
     {
         return $this->comments()->count();
     }
+    
 }
