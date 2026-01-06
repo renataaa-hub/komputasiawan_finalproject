@@ -11,19 +11,22 @@ class TrackVisitor
 {
     public function handle(Request $request, Closure $next)
     {
+        if ($request->is('midtrans/webhook')) {
+            return $next($request);
+        }
+
+        // kalau table belum ada pun, jangan sampai ngebunuh request:
         try {
-            // kalau tabel belum ada, jangan insert biar web gak 500
-            if (Schema::hasTable('visitors')) {
-                \App\Models\Visitor::create([
-                    'ip_address' => $request->ip(),
-                    'user_agent' => $request->userAgent(),
-                    'visit_date' => now()->toDateString(),
-                ]);
-            }
-        } catch (Throwable $e) {
-            // optional: \Log::warning('TrackVisitor error: '.$e->getMessage());
+            Visitor::create([
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'visit_date' => \Carbon\Carbon::today(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('TrackVisitor skipped: '.$e->getMessage());
         }
 
         return $next($request);
     }
+
 }

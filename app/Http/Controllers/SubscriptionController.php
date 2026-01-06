@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Midtrans\Config;
 use Midtrans\Snap;
 use Midtrans\Notification;
+use Midtrans\Transaction as MidtransTransaction;
 
 class SubscriptionController extends Controller
 {
@@ -123,17 +124,40 @@ class SubscriptionController extends Controller
         }
     }
 
-    public function finish(Request $request)
+public function finish(Request $request)
     {
         $orderId = $request->order_id;
-        $subscription = Subscription::where('order_id', $orderId)->first();
 
+        $subscription = Subscription::where('order_id', $orderId)->first();
         if (!$subscription) {
             return redirect()->route('subscription')->with('error', 'Subscription tidak ditemukan');
         }
 
+        // cek ke Midtrans biar gak bergantung 100% webhook
+        try {
+            $status = MidtransTransaction::status($orderId);
+
+            $trxStatus = $status->transaction_status ?? null;
+            $fraud = $status->fraud_status ?? null;
+
+            if ($trxStatus === 'settlement' || ($trxStatus === 'capture' && $fraud === 'accept')) {
+                $subscription->activate();
+                Transaction::where('order_id', $orderId)->update([
+                    'status' => 'settlement',
+                    'midtrans_response' => (array) $status,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Midtrans status check failed for {$orderId}: ".$e->getMessage());
+            // kalau gagal, tetap tampilkan view sesuai status DB
+        }
+
+        // reload setelah kemungkinan activate
+        $subscription->refresh();
+
         return view('subscription-finish', compact('subscription'));
     }
+
 
     public function webhook(Request $request)
     {

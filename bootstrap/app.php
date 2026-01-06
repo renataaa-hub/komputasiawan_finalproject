@@ -10,18 +10,23 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    // Tambahkan di route middleware
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->alias([
-            'subscription' => \App\Http\Middleware\CheckSubscriptionLimit::class,
-            'is_admin'     => \App\Http\Middleware\IsAdmin::class,
-        ]);
-    })
-    ->withMiddleware(function (Middleware $middleware) {
-        $middleware->web(append: [
-            \App\Http\Middleware\TrackVisitor::class, // <--- Tambahkan ini
-        ]);
-    })
+    $middleware->alias([
+        'subscription' => \App\Http\Middleware\CheckSubscriptionLimit::class,
+        'is_admin'     => \App\Http\Middleware\IsAdmin::class,
+    ]);
+
+    // ⬇️ ini yang kamu cari (pengganti protected $except)
+    $middleware->validateCsrfTokens(except: [
+        'midtrans/webhook',
+    ]);
+
+    $middleware->web(append: [
+        \App\Http\Middleware\TrackVisitor::class,
+    ]);
+})
+
     ->withExceptions(function (Exceptions $exceptions): void {
         //
-    })->create();
+    })
+    ->create();
