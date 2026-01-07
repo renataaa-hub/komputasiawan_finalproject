@@ -32,7 +32,7 @@ class AdminController extends Controller
 
             // label lebih bagus pakai tanggal biar tidak duplikat "Senin"
             $chartLabels[] = $date->translatedFormat('D, d M');
-            $chartData[] = (int) ($counts[$key] ?? 0);
+            $chartData[] = Visitor::whereDate('visit_date', $date->toDateString())->count();
         }
 
         return view('admin.dashboard', [
