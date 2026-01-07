@@ -12,38 +12,46 @@ class AdminController extends Controller
 {
     public function dashboard()
     {
-        // Set bahasa tanggal ke Indonesia
         Carbon::setLocale('id');
+
+        $start = Carbon::today()->subDays(6);
+        $end = Carbon::today();
+
+        // hasil: ['2026-01-01' => 10, '2026-01-02' => 4, ...]
+        $counts = Visitor::selectRaw('DATE(visit_date) as d, COUNT(*) as c')
+            ->whereBetween('visit_date', [$start->toDateString(), $end->toDateString()])
+            ->groupBy('d')
+            ->pluck('c', 'd');
 
         $chartLabels = [];
         $chartData = [];
 
-        // Loop selama 7 hari terakhir
-        for ($i = 6; $i >= 0; $i--) {
-            $date = Carbon::now()->subDays($i);
+        for ($i = 0; $i < 7; $i++) {
+            $date = $start->copy()->addDays($i);
+            $key = $date->toDateString();
 
-            // Masukkan Nama Hari ke Label
-            $chartLabels[] = $date->translatedFormat('l'); 
-
-            // Hitung jumlah Visitor pada tanggal tersebut
-            
-            $chartData[] = Visitor::whereDate('visit_date', $date)->count(); 
+            // label lebih bagus pakai tanggal biar tidak duplikat "Senin"
+            $chartLabels[] = $date->translatedFormat('D, d M');
+            $chartData[] = (int) ($counts[$key] ?? 0);
         }
 
         return view('admin.dashboard', [
-            // Total user tetap diambil untuk Kartu Statistik di atas
             'totalUsers' => User::count(),
             'totalKarya' => Karya::count(),
-            
-            // Data grafik sekarang berisi data Pengunjung
             'chartLabels' => $chartLabels,
             'chartData' => $chartData,
         ]);
     }
 
+
     public function users()
     {
-        $users = User::withCount('karyas')->latest()->get();
+        $users = User::withCount('karyas')
+        ->with(['activeSubscription', 'latestSubscription'])
+        ->latest()
+        ->get();
+
+
         return view('admin.users', compact('users'));
     }
 }
